@@ -3,7 +3,7 @@ const UserController = require("../Controllers/UserController");
 const {requireAuth,requireRole } = require("../middleware/auth.middleware");
 const upload = require("../middleware/upload")
 const validate = require("../middleware/validate.middleware");
-const {signupSchema,loginSchema} = require("../user.validation");
+const {signupSchema,loginSchema} = require("../validations/user.validation");
 
 routes.post("/user",validate(signupSchema),UserController.SignupUser);
 routes.post("/user/login",validate(loginSchema),UserController.LoginUser);
