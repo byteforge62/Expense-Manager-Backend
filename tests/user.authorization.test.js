@@ -112,4 +112,34 @@ describe("User authorization", () => {
 
         expect(res.statusCode).toBe(403);
     });
+
+
+    test("rejects unsupported profile image types", async () => {
+        const res = await request(app)
+            .post(`/api/user/upload-profile/${userA.id}`)
+            .set("Authorization", `Bearer ${tokenA}`)
+            .attach("profilePic", Buffer.from("not an image"), {
+                filename: "payload.txt",
+                contentType: "text/plain",
+            });
+
+        expect(res.statusCode).toBe(400);
+        expect(res.body.message).toMatch(/JPEG, PNG, and WebP/i);
+    });
+
+    test("rejects profile images larger than 5 MB", async () => {
+        const oversizedImage = Buffer.alloc(5 * 1024 * 1024 + 1);
+
+        const res = await request(app)
+            .post(`/api/user/upload-profile/${userA.id}`)
+            .set("Authorization", `Bearer ${tokenA}`)
+            .attach("profilePic", oversizedImage, {
+                filename: "large.png",
+                contentType: "image/png",
+            });
+
+        expect(res.statusCode).toBe(413);
+        expect(res.body.message).toMatch(/5 MB/i);
+    });
+
 });
