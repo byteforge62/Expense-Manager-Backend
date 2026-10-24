@@ -28,12 +28,12 @@ const requireSelfOrAdmin = (req, res, next) => {
 
 routes.post(
   "/user",
-  validate(signupSchema),
+  validate({body:signupSchema}),
   UserController.SignupUser
 );
 routes.post(
   "/user/login",
-  validate(loginSchema),
+  validate({body:loginSchema}),
   UserController.LoginUser
 );
 routes.post("/user/refresh-token", UserController.RefreshToken);

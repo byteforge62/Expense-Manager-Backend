@@ -124,8 +124,8 @@ const updateUser = async (id, data) => {
   const updatedUser = await UserModel.findByIdAndUpdate(
     id,
     { name, email, bio, profilePic },
-    { new: true },
-  );
+    { new: true,runValidators:true },
+  ).select("-password");
 
   if (!updatedUser) {
     throw new NotFoundError("User not found");
@@ -178,8 +178,8 @@ const uploadProfilePicture = async (id, file) => {
     {
       profilePic: imageUrl,
     },
-    { new: true },
-  );
+    { new: true, runValidators: true },
+  ).select("-password");
 
   return updatedUser;
 };
