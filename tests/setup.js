@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 
 beforeAll(async () => {
   const mongoUri = process.env.MONGO_URI_TEST;

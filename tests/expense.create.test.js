@@ -19,8 +19,6 @@ describe("Create Expense Flow", () => {
   beforeAll(async () => {
     // Signup user
     const signupRes = await request(app).post("/api/user").send(testUser);
-    console.log(signupRes.body);
-
     userId = signupRes.body.user?._id || signupRes.body.data?._id;
 
     // Login
@@ -28,7 +26,6 @@ describe("Create Expense Flow", () => {
       email: testUser.email,
       password: testUser.password,
     });
-    console.log(loginRes.body);
     token = loginRes.body.data.token;
 
     // Create category for expense
