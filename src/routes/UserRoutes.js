@@ -75,14 +75,6 @@ routes.post(
   requireAuth,
   requireSelfOrAdmin,
   upload.single("profilePic"),
-  UserController.UploadProfilePic
-);
-
-routes.post(
-  "/user/upload-profile/:id",
-  requireAuth,
-  requireSelfOrAdmin,
-  upload.single("profilePic"),
   validateImageSignature,
   UserController.UploadProfilePic
 );

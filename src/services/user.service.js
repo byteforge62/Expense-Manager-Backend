@@ -1,4 +1,5 @@
 const UserModel = require("../models/UserModel");
+const crypto = require("crypto")
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { PutObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
@@ -124,7 +125,7 @@ const updateUser = async (id, data) => {
   const updatedUser = await UserModel.findByIdAndUpdate(
     id,
     { name, email, bio, profilePic },
-    { new: true,runValidators:true },
+    { new: true, runValidators: true },
   ).select("-password");
 
   if (!updatedUser) {
@@ -162,7 +163,19 @@ const uploadProfilePicture = async (id, file) => {
     }
   }
 
-  const fileName = `profiles/${Date.now()}-${file.originalname}`;
+  const extensionByMimeType = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+  };
+
+  const extension = extensionByMimeType[file.mimetype];
+
+  if (!extension) {
+    throw new ValidationError("Unsupported profile image type");
+  }
+
+  const fileName = `profiles/${crypto.randomUUID()}.${extension}`;
   await s3.send(
     new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME,
