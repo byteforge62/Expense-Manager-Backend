@@ -1,5 +1,19 @@
 const mongoose = require("mongoose");
 require("dotenv").config();
+const validateEnv = require("./src/config/validateEnv");
+validateEnv();
+const jwtSecret = process.env.JWT_SECRET;
+
+if (
+  !jwtSecret ||
+  jwtSecret.length < 32 ||
+  jwtSecret === "your-secret-key" ||
+  jwtSecret === "secret"
+) {
+  throw new Error(
+    "JWT_SECRET must be configured with a strong secret of at least 32 characters.",
+  );
+}
 require("./src/utiles/recurringCron");
 
 const app = require("./app");
