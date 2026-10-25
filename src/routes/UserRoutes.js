@@ -7,6 +7,9 @@ const {
 } = require("../middleware/auth.middleware");
 const upload = require("../middleware/upload");
 const validate = require("../middleware/validate.middleware");
+const validateImageSignature = require(
+  "../middleware/validate-image-signature.middleware"
+);
 const {
   signupSchema,
   loginSchema,
@@ -72,6 +75,15 @@ routes.post(
   requireAuth,
   requireSelfOrAdmin,
   upload.single("profilePic"),
+  UserController.UploadProfilePic
+);
+
+routes.post(
+  "/user/upload-profile/:id",
+  requireAuth,
+  requireSelfOrAdmin,
+  upload.single("profilePic"),
+  validateImageSignature,
   UserController.UploadProfilePic
 );
 

@@ -142,4 +142,19 @@ describe("User authorization", () => {
         expect(res.body.message).toMatch(/5 MB/i);
     });
 
+
+    test("rejects files that claim to be PNG but contain non-image data", async () => {
+        const res = await request(app)
+            .post(`/api/user/upload-profile/${userA.id}`)
+            .set("Authorization", `Bearer ${tokenA}`)
+            .attach("profilePic", Buffer.from("not a real PNG image"), {
+                filename: "fake.png",
+                contentType: "image/png",
+            });
+
+        expect(res.statusCode).toBe(400);
+        expect(res.body.message).toMatch(/content does not match/i);
+    });
+
+
 });
