@@ -1,3 +1,4 @@
+
 const multer = require("multer");
 
 const errorHandler = (err, req, res, _next) => {
@@ -23,11 +24,18 @@ const errorHandler = (err, req, res, _next) => {
     });
   }
 
-  console.error(err);
+  const statusCode = err.statusCode || 500;
 
-  return res.status(err.statusCode || 500).json({
+  if (statusCode >= 500) {
+    console.error(err);
+  }
+
+  return res.status(statusCode).json({
     success: false,
-    message: err.message || "Internal server error",
+    message:
+      statusCode >= 500
+        ? "Internal server error"
+        : err.message || "Request failed",
   });
 };
 
