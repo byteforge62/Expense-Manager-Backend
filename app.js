@@ -7,7 +7,7 @@ const mongoSanitize = require("express-mongo-sanitize");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./src/docs/swagger");
 const morgan = require("morgan");
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 
 const userRoutes = require("./src/routes/UserRoutes");
 const categoryRoutes = require("./src/routes/CategoryRoutes");
