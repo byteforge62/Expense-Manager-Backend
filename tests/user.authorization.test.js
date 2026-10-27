@@ -156,5 +156,31 @@ describe("User authorization", () => {
         expect(res.body.message).toMatch(/content does not match/i);
     });
 
+    
+    test("inactive user cannot log in with valid credentials", async () => {
+        const password = "Password123";
+        const bcrypt = require("bcrypt");
+
+        const inactiveUser = await UserModel.create({
+            name: "Inactive Test User",
+            email: `inactive_${Date.now()}@mail.com`,
+            password: await bcrypt.hash(password, 10),
+            role: "User",
+            is_active: false,
+        });
+
+        const res = await request(app)
+            .post("/api/user/login")
+            .send({
+                email: inactiveUser.email,
+                password,
+            });
+
+        expect(res.statusCode).toBe(401);
+        expect(res.body).toMatchObject({
+            success: false,
+            message: "Invalid email or password",
+        });
+    });
 
 });
