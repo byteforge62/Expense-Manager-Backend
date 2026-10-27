@@ -77,7 +77,10 @@ const loginUser = async (data) => {
   );
 
   const refreshToken = jwt.sign(
-    { id: foundUser._id },
+    {
+      id: foundUser._id,
+      jti: crypto.randomUUID(),
+    },
     process.env.REFRESH_SECRET,
     { expiresIn: "7d" },
   );
@@ -144,10 +147,13 @@ const refreshToken = async (token) => {
   );
 
   const newRefreshToken = jwt.sign(
-    { id: user._id },
-    process.env.REFRESH_SECRET,
-    { expiresIn: "7d" },
-  );
+  {
+    id: user._id,
+    jti: crypto.randomUUID(),
+  },
+  process.env.REFRESH_SECRET,
+  { expiresIn: "7d" },
+);
 
   const newTokenHash = crypto
     .createHash("sha256")
