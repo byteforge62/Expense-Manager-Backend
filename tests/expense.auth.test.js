@@ -43,4 +43,38 @@ describe("Expense Routes Auth Protection", () => {
     expect(res.body.success).toBe(false);
   });
 
+  
+  test("rejects an existing access token when the user is deactivated", async () => {
+    const bcrypt = require("bcrypt");
+    const UserModel = require("../src/models/UserModel");
+
+    const email = `inactive_token_${Date.now()}@mail.com`;
+    const password = "Password123";
+
+    const user = await UserModel.create({
+      name: "Inactive Token Test",
+      email,
+      password: await bcrypt.hash(password, 10),
+      role: "User",
+      is_active: true,
+    });
+
+    const jwt = require("jsonwebtoken");
+    const token = jwt.sign(
+      { id: user._id.toString(), role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" },
+    );
+
+    user.is_active = false;
+    await user.save();
+
+    const res = await request(app)
+      .get("/api/expenses/me")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.statusCode).toBe(401);
+  });
+
+
 });

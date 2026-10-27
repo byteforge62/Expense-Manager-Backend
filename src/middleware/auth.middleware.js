@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
+const UserModel = require("../models/UserModel");
 
-const requireAuth = (req, res, next) => {
+const requireAuth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -17,12 +18,23 @@ const requireAuth = (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    const user = await UserModel.findById(decoded.id).select(
+      "_id role is_active",
+    );
+
+    if (!user || !user.is_active) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired token",
+      });
+    }
+
     req.user = {
-      id: decoded.id,
-      role: decoded.role,
+      id: user._id.toString(),
+      role: user.role,
     };
 
-    next();
+    return next();
   } catch {
     return res.status(401).json({
       success: false,

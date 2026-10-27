@@ -2,6 +2,7 @@ require("dotenv").config({ quiet: true });
 const jwt = require("jsonwebtoken");
 const request = require("supertest");
 const app = require("../app");
+const UserModel = require("../src/models/UserModel");
 
 describe("Refresh token validation", () => {
   test("rejects a missing refresh token", async () => {
@@ -43,4 +44,29 @@ describe("Refresh token validation", () => {
       message: "Invalid refresh token",
     });
   });
+
+  
+  test("rejects refresh tokens for inactive users", async () => {
+    const user = await UserModel.create({
+      name: "Inactive Refresh User",
+      email: `inactive_refresh_${Date.now()}@mail.com`,
+      password: "unused-test-password",
+      role: "User",
+      is_active: false,
+    });
+
+    const token = jwt.sign(
+      { id: user._id.toString() },
+      process.env.REFRESH_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    const res = await request(app)
+      .post("/api/user/refresh-token")
+      .set("Cookie", `refreshToken=${token}`);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe("Invalid refresh token");
+  });
+
 });

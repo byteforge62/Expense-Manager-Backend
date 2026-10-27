@@ -105,8 +105,8 @@ const refreshToken = async (token) => {
 
   const user = await UserModel.findById(decoded.id);
 
-  if (!user) {
-    throw new UnauthorizedError("User not found");
+  if (!user || !user.is_active) {
+    throw new UnauthorizedError("Invalid refresh token");
   }
 
   const newAccessToken = jwt.sign(
