@@ -65,6 +65,10 @@ const loginUser = async (data) => {
     throw new UnauthorizedError("Invalid email or password");
   }
 
+  if(!foundUser.is_active){
+    throw new UnauthorizedError("Invalid email or password");
+  }
+
   const accessToken = jwt.sign(
     { id: foundUser._id, role: foundUser.role },
     process.env.JWT_SECRET,
