@@ -74,17 +74,23 @@ const RefreshToken = asyncHandler(async (req, res) => {
 });
 
 
-const LogoutUser = (req, res) => {
+
+const LogoutUser = asyncHandler(async (req, res) => {
+  await UserService.revokeRefreshToken(req.cookies?.refreshToken);
+
   const cookieOptions = {
     httpOnly: true,
     secure: true,
     sameSite: "none",
     path: "/",
   };
+
   res.clearCookie("accessToken", cookieOptions);
   res.clearCookie("refreshToken", cookieOptions);
+
   return sendSuccess(res, 200, "Logged out successfully");
-};
+});
+
 
 const UpdateUser = asyncHandler(async (req, res) => {
   const updatedUser = await UserService.updateUser(req.params.id,req.body);
