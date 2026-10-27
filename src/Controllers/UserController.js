@@ -54,26 +54,32 @@ const LoginUser = asyncHandler(async (req, res) => {
   });
 });
 
-
 const RefreshToken = asyncHandler(async (req, res) => {
-  const newAccessToken = await UserService.refreshToken(
-    req.cookies.refreshToken
+  const tokens = await UserService.refreshToken(
+    req.cookies?.refreshToken,
   );
 
-  res.cookie("accessToken", newAccessToken, {
+  const cookieOptions = {
     httpOnly: true,
     secure: true,
     sameSite: "none",
     path: "/",
+  };
+
+  res.cookie("accessToken", tokens.accessToken, {
+    ...cookieOptions,
     maxAge: 3600000,
   });
 
+  res.cookie("refreshToken", tokens.refreshToken, {
+    ...cookieOptions,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
   return sendSuccess(res, 200, "Token refreshed", {
-    token: newAccessToken,
+    token: tokens.accessToken,
   });
 });
-
-
 
 const LogoutUser = asyncHandler(async (req, res) => {
   await UserService.revokeRefreshToken(req.cookies?.refreshToken);
@@ -91,13 +97,10 @@ const LogoutUser = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, "Logged out successfully");
 });
 
-
 const UpdateUser = asyncHandler(async (req, res) => {
   const updatedUser = await UserService.updateUser(req.params.id,req.body);
     return sendSuccess(res, 200, "User updated successfully", updatedUser);
 });
-
-
 
 //Util function to upload profile picture to s3
 const UploadProfilePic = asyncHandler(async (req, res) => {

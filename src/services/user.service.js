@@ -103,6 +103,7 @@ const loginUser = async (data) => {
 };
 
 
+
 const refreshToken = async (token) => {
   if (!token) {
     throw new UnauthorizedError("Refresh token missing");
@@ -136,15 +137,37 @@ const refreshToken = async (token) => {
     throw new UnauthorizedError("Invalid refresh token");
   }
 
-  return jwt.sign(
-    {
-      id: user._id,
-      role: user.role,
-    },
+  const newAccessToken = jwt.sign(
+    { id: user._id, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: "1h" },
   );
+
+  const newRefreshToken = jwt.sign(
+    { id: user._id },
+    process.env.REFRESH_SECRET,
+    { expiresIn: "7d" },
+  );
+
+  const newTokenHash = crypto
+    .createHash("sha256")
+    .update(newRefreshToken)
+    .digest("hex");
+
+  await RefreshTokenModel.create({
+    user: user._id,
+    tokenHash: newTokenHash,
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  });
+
+  await RefreshTokenModel.deleteOne({ _id: storedToken._id });
+
+  return {
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken,
+  };
 };
+
 
 
 const revokeRefreshToken = async (token) => {
