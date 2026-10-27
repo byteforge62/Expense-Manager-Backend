@@ -1,5 +1,6 @@
 const UserModel = require("../models/UserModel");
-const crypto = require("crypto")
+const crypto = require("crypto");
+const RefreshTokenModel = require("../models/RefreshTokenModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { PutObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
@@ -65,7 +66,7 @@ const loginUser = async (data) => {
     throw new UnauthorizedError("Invalid email or password");
   }
 
-  if(!foundUser.is_active){
+  if (!foundUser.is_active) {
     throw new UnauthorizedError("Invalid email or password");
   }
 
@@ -81,6 +82,17 @@ const loginUser = async (data) => {
     { expiresIn: "7d" },
   );
 
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(refreshToken)
+    .digest("hex");
+
+  await RefreshTokenModel.create({
+    user: foundUser._id,
+    tokenHash,
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  });
+
   const userData = foundUser.toObject();
   delete userData.password;
   return {
@@ -89,6 +101,7 @@ const loginUser = async (data) => {
     user: userData,
   };
 };
+
 
 const refreshToken = async (token) => {
   if (!token) {
@@ -103,25 +116,36 @@ const refreshToken = async (token) => {
     throw new UnauthorizedError("Invalid refresh token");
   }
 
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+  const storedToken = await RefreshTokenModel.findOne({
+    tokenHash,
+    expiresAt: { $gt: new Date() },
+  });
+
+  if (!storedToken || storedToken.user.toString() !== decoded.id) {
+    throw new UnauthorizedError("Invalid refresh token");
+  }
+
   const user = await UserModel.findById(decoded.id);
 
   if (!user || !user.is_active) {
     throw new UnauthorizedError("Invalid refresh token");
   }
 
-  const newAccessToken = jwt.sign(
+  return jwt.sign(
     {
       id: user._id,
       role: user.role,
     },
     process.env.JWT_SECRET,
-    {
-      expiresIn: "1h",
-    },
+    { expiresIn: "1h" },
   );
-
-  return newAccessToken;
 };
+
 
 const updateUser = async (id, data) => {
   const { name, email, bio, profilePic } = data;
