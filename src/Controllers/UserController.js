@@ -54,18 +54,26 @@ const LoginUser = asyncHandler(async (req, res) => {
   });
 });
 
+
 const RefreshToken = asyncHandler(async (req, res) => {
-  const newAccessToken = await UserService.refreshToken(req.cookies.refreshToken);
-    res.cookie("accessToken", newAccessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 3600000,
-    });
-    return sendSuccess(res, 200, "Token refreshed", { token: newAccessToken });
+  const newAccessToken = await UserService.refreshToken(
+    req.cookies.refreshToken
+  );
+
+  res.cookie("accessToken", newAccessToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+    maxAge: 3600000,
+  });
+
+  return sendSuccess(res, 200, "Token refreshed", {
+    token: newAccessToken,
+  });
 });
 
-// Clear authentication cookies to log the user out
+
 const LogoutUser = (req, res) => {
   const cookieOptions = {
     httpOnly: true,
