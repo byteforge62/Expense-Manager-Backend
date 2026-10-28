@@ -1,7 +1,9 @@
 ﻿const request = require("supertest");
 const app = require("../app");
 const UserModel = require("../src/models/UserModel");
+const RefreshTokenModel = require("../src/models/RefreshTokenModel");
 const jwt = require("jsonwebtoken");
+
 
 jest.setTimeout(20000);
 
@@ -183,4 +185,25 @@ describe("User authorization", () => {
         });
     });
 
+    test("admin deleting a user removes their refresh tokens", async () => {
+      const target = await signupAndLogin(makeUser("delete_cleanup"));
+
+      await RefreshTokenModel.create({
+        user: target.id,
+        tokenHash: `test_hash_${Date.now()}_${Math.random()}`,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      });
+
+      const deleteRes = await request(app)
+        .delete(`/api/user/${target.id}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+
+      expect(deleteRes.statusCode).toBe(200);
+
+      const remainingTokens = await RefreshTokenModel.countDocuments({
+        user: target.id,
+      });
+
+      expect(remainingTokens).toBe(0);
+    });
 });

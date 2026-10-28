@@ -33,7 +33,13 @@ const getUserById = async (id) => {
 
 const deleteUser = async (id) => {
   const user = await UserModel.findByIdAndDelete(id);
-  if (!user) throw new NotFoundError("User not found");
+
+  if (!user) {
+    throw new NotFoundError("User not found");
+  }
+
+  await RefreshTokenModel.deleteMany({ user: id });
+
   return user;
 };
 
@@ -125,12 +131,13 @@ const refreshToken = async (token) => {
     .update(token)
     .digest("hex");
 
-  const storedToken = await RefreshTokenModel.findOne({
+  const storedToken = await RefreshTokenModel.findOneAndDelete({
     tokenHash,
+    user: decoded.id,
     expiresAt: { $gt: new Date() },
   });
 
-  if (!storedToken || storedToken.user.toString() !== decoded.id) {
+  if (!storedToken) {
     throw new UnauthorizedError("Invalid refresh token");
   }
 
@@ -147,13 +154,13 @@ const refreshToken = async (token) => {
   );
 
   const newRefreshToken = jwt.sign(
-  {
-    id: user._id,
-    jti: crypto.randomUUID(),
-  },
-  process.env.REFRESH_SECRET,
-  { expiresIn: "7d" },
-);
+    {
+      id: user._id,
+      jti: crypto.randomUUID(),
+    },
+    process.env.REFRESH_SECRET,
+    { expiresIn: "7d" },
+  );
 
   const newTokenHash = crypto
     .createHash("sha256")
@@ -165,8 +172,6 @@ const refreshToken = async (token) => {
     tokenHash: newTokenHash,
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   });
-
-  await RefreshTokenModel.deleteOne({ _id: storedToken._id });
 
   return {
     accessToken: newAccessToken,
