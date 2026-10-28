@@ -48,8 +48,8 @@ const signupUser = async (data) => {
   if (existingUser) {
     throw new ConflictError("Email already Registered");
   }
-  const salt = bcrypt.genSaltSync(10);
-  const hashedPassword = bcrypt.hashSync(data.password, salt);
+  const salt = await bcrypt.genSaltSync(10);
+  const hashedPassword = await bcrypt.hashSync(data.password, salt);
   const user = await UserModel.create({
     name: data.name,
     email: data.email,
