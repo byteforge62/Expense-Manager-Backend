@@ -208,6 +208,9 @@ const updateUser = async (id, data) => {
 };
 
 const uploadProfilePicture = async (id, file) => {
+  if (!file) {
+    throw new ValidationError("No file uploaded");
+  }
   const requiredS3Variables = [
     "AWS_REGION",
     "AWS_ACCESS_KEY_ID",
@@ -226,9 +229,6 @@ const uploadProfilePicture = async (id, file) => {
     );
   }
 
-  if (!file) {
-    throw new ValidationError("No file uploaded");
-  }
   const currentUser = await UserModel.findById(id);
   if (!currentUser) {
     throw new NotFoundError("User not found");
