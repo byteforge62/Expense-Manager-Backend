@@ -4,7 +4,7 @@ const RefreshTokenModel = require("../models/RefreshTokenModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { PutObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
-const s3 = require("../config/s3");
+const {getS3Client} = require("../config/s3");
 const NotFoundError = require("../errors/NotFoundError");
 const ConflictError = require("../errors/ConflictError");
 const UnauthorizedError = require("../errors/UnauthorizedError");
@@ -238,7 +238,7 @@ const uploadProfilePicture = async (id, file) => {
     const oldKey = extractS3Key(currentUser.profilePic);
     if (oldKey) {
       try {
-        await s3.send(
+        await getS3Client.send(
           new DeleteObjectCommand({
             Bucket: process.env.AWS_BUCKET_NAME,
             Key: oldKey,
@@ -266,7 +266,7 @@ const uploadProfilePicture = async (id, file) => {
   }
 
   const fileName = `profiles/${crypto.randomUUID()}.${extension}`;
-  await s3.send(
+  await getS3Client.send(
     new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME,
       Key: fileName,
