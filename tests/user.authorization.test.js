@@ -115,6 +115,53 @@ describe("User authorization", () => {
         expect(res.statusCode).toBe(403);
     });
 
+    test("returns 503 when profile image storage is not configured", async () => {
+        const awsVariables = [
+            "AWS_REGION",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
+            "AWS_BUCKET_NAME",
+        ];
+
+        const originalValues = Object.fromEntries(
+            awsVariables.map((name) => [name, process.env[name]]),
+        );
+
+        try {
+            awsVariables.forEach((name) => {
+                delete process.env[name];
+            });
+
+            const res = await request(app)
+                .post(`/api/user/upload-profile/${userA.id}`)
+                .set("Authorization", `Bearer ${tokenA}`)
+                .attach(
+                    "profilePic",
+                    Buffer.from(
+                        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+                        "base64"
+                    ),
+                    {
+                        filename: "test.png",
+                        contentType: "image/png",
+                    }
+                );
+
+            expect(res.statusCode).toBe(503);
+            expect(res.body).toMatchObject({
+              success: false,
+              message: "Internal server error",
+            });
+        } finally {
+            awsVariables.forEach((name) => {
+                if (originalValues[name] === undefined) {
+                    delete process.env[name];
+                } else {
+                    process.env[name] = originalValues[name];
+                }
+            });
+        }
+    });
 
     test("rejects unsupported profile image types", async () => {
         const res = await request(app)
@@ -158,7 +205,7 @@ describe("User authorization", () => {
         expect(res.body.message).toMatch(/content does not match/i);
     });
 
-    
+
     test("inactive user cannot log in with valid credentials", async () => {
         const password = "Password123";
         const bcrypt = require("bcrypt");
@@ -186,24 +233,24 @@ describe("User authorization", () => {
     });
 
     test("admin deleting a user removes their refresh tokens", async () => {
-      const target = await signupAndLogin(makeUser("delete_cleanup"));
+        const target = await signupAndLogin(makeUser("delete_cleanup"));
 
-      await RefreshTokenModel.create({
-        user: target.id,
-        tokenHash: `test_hash_${Date.now()}_${Math.random()}`,
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-      });
+        await RefreshTokenModel.create({
+            user: target.id,
+            tokenHash: `test_hash_${Date.now()}_${Math.random()}`,
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        });
 
-      const deleteRes = await request(app)
-        .delete(`/api/user/${target.id}`)
-        .set("Authorization", `Bearer ${adminToken}`);
+        const deleteRes = await request(app)
+            .delete(`/api/user/${target.id}`)
+            .set("Authorization", `Bearer ${adminToken}`);
 
-      expect(deleteRes.statusCode).toBe(200);
+        expect(deleteRes.statusCode).toBe(200);
 
-      const remainingTokens = await RefreshTokenModel.countDocuments({
-        user: target.id,
-      });
+        const remainingTokens = await RefreshTokenModel.countDocuments({
+            user: target.id,
+        });
 
-      expect(remainingTokens).toBe(0);
+        expect(remainingTokens).toBe(0);
     });
 });
