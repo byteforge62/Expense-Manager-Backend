@@ -9,6 +9,7 @@ const NotFoundError = require("../errors/NotFoundError");
 const ConflictError = require("../errors/ConflictError");
 const UnauthorizedError = require("../errors/UnauthorizedError");
 const ValidationError = require("../errors/ValidationError");
+const AppError = require("../errors/AppError");
 
 const extractS3Key = (url) => {
   try {
@@ -111,8 +112,6 @@ const loginUser = async (data) => {
   };
 };
 
-
-
 const refreshToken = async (token) => {
   if (!token) {
     throw new UnauthorizedError("Refresh token missing");
@@ -179,8 +178,6 @@ const refreshToken = async (token) => {
   };
 };
 
-
-
 const revokeRefreshToken = async (token) => {
   if (!token) {
     return;
@@ -211,6 +208,24 @@ const updateUser = async (id, data) => {
 };
 
 const uploadProfilePicture = async (id, file) => {
+  const requiredS3Variables = [
+    "AWS_REGION",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_BUCKET_NAME",
+  ];
+
+  const missingS3Variables = requiredS3Variables.filter(
+    (name) => !process.env[name]?.trim(),
+  );
+
+  if (missingS3Variables.length > 0) {
+    throw new AppError(
+      "Profile image storage is not configured.",
+      503,
+    );
+  }
+
   if (!file) {
     throw new ValidationError("No file uploaded");
   }
