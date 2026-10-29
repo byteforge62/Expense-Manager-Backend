@@ -238,7 +238,7 @@ const uploadProfilePicture = async (id, file) => {
     const oldKey = extractS3Key(currentUser.profilePic);
     if (oldKey) {
       try {
-        await getS3Client.send(
+        await getS3Client().send(
           new DeleteObjectCommand({
             Bucket: process.env.AWS_BUCKET_NAME,
             Key: oldKey,
@@ -266,7 +266,7 @@ const uploadProfilePicture = async (id, file) => {
   }
 
   const fileName = `profiles/${crypto.randomUUID()}.${extension}`;
-  await getS3Client.send(
+  await getS3Client().send(
     new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME,
       Key: fileName,
@@ -297,3 +297,4 @@ module.exports = {
   uploadProfilePicture,
   revokeRefreshToken,
 };
+
