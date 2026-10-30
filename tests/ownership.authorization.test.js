@@ -2,6 +2,7 @@
 const request = require("supertest");
 const app = require("../app");
 
+const CategoryModel = require("../src/models/CategoryModel")
 const BudgetModel = require("../src/models/BudgetModel");
 const BillModel = require("../src/models/BillModel");
 const IncomeModel = require("../src/models/IncomeModel");
@@ -43,12 +44,21 @@ describe("Cross-user resource ownership authorization", () => {
 
   describe("Budget ownership", () => {
     let budgetId;
+    let categoryId;
 
     beforeAll(async () => {
+      const category = await CategoryModel.create({
+        name: "Ownership Test Category",
+        type: "expense",
+      });
+
+      categoryId = category._id;
+
       const response = await request(app)
         .post("/api/budget")
         .set("Authorization", `Bearer ${userAToken}`)
         .send({
+          categoryID: categoryId.toString(),
           amount: 1500,
           start_date: new Date(),
           end_date: new Date(Date.now() + 86400000),

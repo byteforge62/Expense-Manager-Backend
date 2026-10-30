@@ -1,20 +1,10 @@
 const { z } = require("zod");
 
 const createBillSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-
-  amount: z.coerce
-    .number()
-    .positive(),
-
+  name: z.string().trim().min(1).max(100),
   dueDate: z.coerce.date(),
+  amount: z.coerce.number().positive(),
+  status: z.enum(["pending", "paid"]).optional(),
+}).strict();
 
-  recurring: z.boolean().optional(),
-});
-
-const updateBillSchema = createBillSchema.partial();
-
-module.exports = {
-  createBillSchema,
-  updateBillSchema,
-};
+module.exports = { createBillSchema };

@@ -14,6 +14,11 @@ const BudgetSchema = new Schema(
     amount: {
       type: Number, // The maximum amount the user wants to spend
     },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
     start_date: {
       type: Date,
     },
@@ -27,11 +32,11 @@ const BudgetSchema = new Schema(
 );
 
 BudgetSchema.index({
-  userID:1,
-  categoryID:1
+  userID: 1,
+  categoryID: 1
 });
 BudgetSchema.index({
-  userID:1,
+  userID: 1,
   start_date: -1
 });
 

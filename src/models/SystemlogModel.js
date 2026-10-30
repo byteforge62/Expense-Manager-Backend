@@ -5,19 +5,17 @@ const SystemLogSchema = new Schema(
   {
     user: {
       type: Schema.Types.ObjectId,
-      ref:"users", // The user involved in the action
+      ref: "users",
       required: true,
     },
     action: {
-      type: String, // e.g., "LOGIN", "CREATE_EXPENSE"
+      type: String,
       required: true,
+      trim: true,
     },
     description: {
-      type: String, // Extra details about what happened
-    },
-    timestamp: {
-      type: Date,
-      default: Date.now,
+      type: String,
+      trim: true,
     },
   },
   {
@@ -25,14 +23,7 @@ const SystemLogSchema = new Schema(
   },
 );
 
-SystemLogSchema.index({
-    createdAt: -1
-});
-
-SystemLogSchema.index({
-    user: 1,
-    createdAt: -1
-});
+SystemLogSchema.index({ createdAt: -1 });
+SystemLogSchema.index({ user: 1, createdAt: -1 });
 
 module.exports = mongoose.model("SystemLog", SystemLogSchema);
-
