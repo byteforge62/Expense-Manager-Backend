@@ -26,9 +26,16 @@ const errorHandler = (err, req, res, _next) => {
 
   const statusCode = err.statusCode || 500;
 
+  if (err.code === 11000) {
+    return res.status(409).json({
+      success: false,
+      message: "A record with the same value already exists",
+    });
+  }
   if (statusCode >= 500) {
     console.error(err);
   }
+
 
   return res.status(statusCode).json({
     success: false,
