@@ -13,6 +13,7 @@ const validateImageSignature = require(
 const {
   signupSchema,
   loginSchema,
+  updateUserSchema,
 } = require("../validations/user.validation");
 
 const requireSelfOrAdmin = (req, res, next) => {
@@ -60,7 +61,8 @@ routes.put(
   "/user/:id",
   requireAuth,
   requireSelfOrAdmin,
-  UserController.UpdateUser
+  validate({ body: updateUserSchema }),
+  UserController.UpdateUser,
 );
 
 routes.delete(

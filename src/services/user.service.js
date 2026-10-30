@@ -192,11 +192,11 @@ const revokeRefreshToken = async (token) => {
 };
 
 const updateUser = async (id, data) => {
-  const { name, email, bio, profilePic } = data;
+  const { name, email, bio } = data;
 
   const updatedUser = await UserModel.findByIdAndUpdate(
     id,
-    { name, email, bio, profilePic },
+    { name, email, bio },
     { new: true, runValidators: true },
   ).select("-password");
 
