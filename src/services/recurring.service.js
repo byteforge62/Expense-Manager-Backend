@@ -19,39 +19,52 @@ const getRecurringByUser = async (userId) => {
 };
 
 const deleteRecurring = async (id, userId) => {
-  const recurring = await RecurringModel.findById(id);
+  const recurring = await RecurringModel.findOneAndDelete({
+    _id: id,
+    userId,
+  });
 
   if (!recurring) {
-    throw new NotFoundError("Recurring transaction not found");
-  }
+    const exists = await RecurringModel.exists({ _id: id });
 
-  if (recurring.userId.toString() !== userId) {
+    if (!exists) {
+      throw new NotFoundError("Recurring transaction not found");
+    }
+
     throw new ForbiddenError(
       "You are not authorized to delete this recurring transaction"
     );
   }
-
-  await RecurringModel.findByIdAndDelete(id);
 };
 
 const updateRecurring = async (id, data, userId) => {
-  const recurring = await RecurringModel.findById(id);
+  const updatedRecurring = await RecurringModel.findOneAndUpdate(
+    {
+      _id: id,
+      userId,
+    },
+    {
+      $set: data,
+    },
+    {
+      new: true,
+      runValidators: true,
+    },
+  );
 
-  if (!recurring) {
-    throw new NotFoundError("Recurring transaction not found");
-  }
+  if (!updatedRecurring) {
+    const exists = await RecurringModel.exists({ _id: id });
 
-  if (recurring.userId.toString() !== userId) {
+    if (!exists) {
+      throw new NotFoundError("Recurring transaction not found");
+    }
+
     throw new ForbiddenError(
-      "You are not authorized to update this recurring transaction"
+      "You are not authorized to update this recurring transaction",
     );
   }
 
-  return await RecurringModel.findByIdAndUpdate(
-    id,
-    data,
-    { new: true }
-  );
+  return updatedRecurring;
 };
 
 const getUpcomingRecurring = async (userId) => {
@@ -66,13 +79,18 @@ const getUpcomingRecurring = async (userId) => {
 };
 
 const toggleRecurringStatus = async (id, userId) => {
-  const recurring = await RecurringModel.findById(id);
+  const recurring = await RecurringModel.findOne({
+    _id: id,
+    userId,
+  });
 
   if (!recurring) {
-    throw new NotFoundError("Recurring transaction not found");
-  }
+    const exists = await RecurringModel.exists({ _id: id });
 
-  if (recurring.userId.toString() !== userId) {
+    if (!exists) {
+      throw new NotFoundError("Recurring transaction not found");
+    }
+
     throw new ForbiddenError(
       "You are not authorized to update this recurring transaction"
     );

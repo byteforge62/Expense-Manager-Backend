@@ -9,35 +9,50 @@ const addExpense = async (data, userId) => {
 };
 
 const deleteExpense = async (expenseId, userId) => {
-  const expense = await ExpenseModel.findById(expenseId);
+  const expense = await ExpenseModel.findOneAndDelete({
+    _id: expenseId,
+    userID: userId,
+  });
+
   if (!expense) {
-    throw new NotFoundError("Expense not found");
-  }
+    const exists = await ExpenseModel.exists({ _id: expenseId });
 
-  if (expense.userID.toString() !== userId) {
-    throw new ForbiddenError("You are not authorized to delete this expense");
-  }
+    if (!exists) {
+      throw new NotFoundError("Expense not found");
+    }
 
-  await ExpenseModel.findByIdAndDelete(expenseId);
+    throw new ForbiddenError(
+      "You are not authorized to delete this expense"
+    );
+  }
 };
 
 const updateExpense = async (id, data, userId) => {
-  const expense = await ExpenseModel.findById(id);
-  if (!expense) {
-    throw new NotFoundError("Expense Not found");
+  const updatedExpense = await ExpenseModel.findOneAndUpdate(
+    {
+      _id: id,
+      userID: userId,
+    },
+    {
+      $set: data,
+    },
+    {
+      new: true,
+      runValidators: true,
+    },
+  );
+
+  if (!updatedExpense) {
+    const exists = await ExpenseModel.exists({ _id: id });
+
+    if (!exists) {
+      throw new NotFoundError("Expense not found");
+    }
+
+    throw new ForbiddenError("You are not authorized to update this expense");
   }
 
-  if (expense.userID.toString() !== userId) {
-    throw new ForbiddenError("You are not Authorized to Update this expense");
-  }
-
-  const updatedExpense = await ExpenseModel.findByIdAndUpdate(
-    id,
-    data,
-    { new: true }
-);
-
-return updatedExpense;
+  return updatedExpense;
 };
 
 const getExpenseById = async (id, userId) => {
