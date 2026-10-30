@@ -1,33 +1,51 @@
+
 const request = require("supertest");
 const app = require("../app");
 const Category = require("../src/models/CategoryModel");
+const Expense = require("../src/models/ExpenseModel");
 
 jest.setTimeout(20000);
 
-describe("Update Expense Flow", () => {
-
-  let token;
-  let userId;
+describe("Update Expense Authorization", () => {
+  let ownerToken;
+  let otherUserToken;
   let expenseId;
   let categoryId;
 
-  const testUser = {
-    name: "Update Test User",
-    email: `update_${Date.now()}@mail.com`,
+  const owner = {
+    name: "Update Owner",
+    email: `update_owner_${Date.now()}@mail.com`,
     password: "Password123"
   };
 
+  const otherUser = {
+    name: "Update Other User",
+    email: `update_other_${Date.now()}@mail.com`,
+    password: "Password123"
+  };
+
+  const registerAndLogin = async (user) => {
+    const signupRes = await request(app)
+      .post("/api/user")
+      .send(user);
+
+    expect(signupRes.statusCode).toBe(201);
+
+    const loginRes = await request(app)
+      .post("/api/user/login")
+      .send({
+        email: user.email,
+        password: user.password
+      });
+
+    expect(loginRes.statusCode).toBe(200);
+
+    return loginRes.body.data.token;
+  };
+
   beforeAll(async () => {
-
-    const signupRes = await request(app).post("/api/user").send(testUser);
-    userId = signupRes.body.user?._id || signupRes.body.data?._id;
-
-    const loginRes = await request(app).post("/api/user/login").send({
-      email: testUser.email,
-      password: testUser.password
-    });
-
-    token = loginRes.body.data.token;
+    ownerToken = await registerAndLogin(owner);
+    otherUserToken = await registerAndLogin(otherUser);
 
     const category = await Category.create({
       name: "Update Category",
@@ -38,23 +56,48 @@ describe("Update Expense Flow", () => {
 
     const expenseRes = await request(app)
       .post("/api/expense")
-      .set("Authorization", `Bearer ${token}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
-        userID: userId,
         categoryID: categoryId,
         amount: 200,
         date: new Date(),
         description: "Before update"
       });
 
+    expect(expenseRes.statusCode).toBe(201);
     expenseId = expenseRes.body.data._id;
   });
 
-  test("Owner can update expense", async () => {
+  test("Another user cannot access expense by ID", async () => {
+    const res = await request(app)
+      .get(`/api/expense/${expenseId}`)
+      .set("Authorization", `Bearer ${otherUserToken}`);
 
+    expect(res.statusCode).toBe(403);
+  });
+
+  test("Another user cannot update expense", async () => {
     const res = await request(app)
       .put(`/api/expense/${expenseId}`)
-      .set("Authorization", `Bearer ${token}`)
+      .set("Authorization", `Bearer ${otherUserToken}`)
+      .send({
+        amount: 1,
+        description: "Unauthorized modification"
+      });
+
+    expect(res.statusCode).toBe(403);
+
+    const savedExpense = await Expense.findById(expenseId);
+
+    expect(savedExpense).not.toBeNull();
+    expect(savedExpense.amount).toBe(200);
+    expect(savedExpense.description).toBe("Before update");
+  });
+
+  test("Owner can update expense", async () => {
+    const res = await request(app)
+      .put(`/api/expense/${expenseId}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         amount: 999,
         description: "After update"
@@ -65,5 +108,3 @@ describe("Update Expense Flow", () => {
     expect(res.body.data.description).toBe("After update");
   });
 });
-
-
