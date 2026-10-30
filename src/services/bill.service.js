@@ -32,19 +32,20 @@ const getBillById = async (billId, userId) => {
 };
 
 const deleteBill = async (billId, userId) => {
-  const bill = await BillModel.findById(billId);
+  const bill = await BillModel.findOneAndDelete({
+    _id: billId,
+    userID: userId,
+  });
 
   if (!bill) {
-    throw new NotFoundError("Bill not found");
-  }
+    const exists = await BillModel.exists({ _id: billId });
 
-  if (bill.userID.toString() !== userId) {
-    throw new ForbiddenError(
-      "You are not authorized to delete this bill"
-    );
-  }
+    if (!exists) {
+      throw new NotFoundError("Bill not found");
+    }
 
-  await BillModel.findByIdAndDelete(billId);
+    throw new ForbiddenError("You are not authorized to delete this bill");
+  }
 };
 
 const getBillByUserId = async (userId) => {

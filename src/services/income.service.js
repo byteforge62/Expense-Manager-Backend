@@ -9,16 +9,20 @@ const addIncome = async (data, userId) => {
 };
 
 const deleteIncome = async (incomeId, userId) => {
-  const income = await IncomeModel.findById(incomeId);
+  const income = await IncomeModel.findOneAndDelete({
+    _id: incomeId,
+    userID: userId,
+  });
+
   if (!income) {
-    throw new NotFoundError("Income not found");
-  }
+    const exists = await IncomeModel.exists({ _id: incomeId });
 
-  if (income.userID.toString() !== userId) {
-    throw new ForbiddenError("You are not Authorized to delete this income");
-  }
+    if (!exists) {
+      throw new NotFoundError("Income not found");
+    }
 
-  await IncomeModel.findByIdAndDelete(incomeId);
+    throw new ForbiddenError("You are not authorized to delete this income");
+  }
 };
 
 const getIncomeById = async (incomeId, userId) => {

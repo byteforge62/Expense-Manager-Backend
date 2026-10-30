@@ -32,19 +32,20 @@ const getBudgetById = async (budgetId, userId) => {
 };
 
 const deleteBudget = async (budgetId, userId) => {
-  const budget = await BudgetModel.findById(budgetId);
+  const budget = await BudgetModel.findOneAndDelete({
+    _id: budgetId,
+    userID: userId,
+  });
 
   if (!budget) {
-    throw new NotFoundError("Budget not found");
-  }
+    const exists = await BudgetModel.exists({ _id: budgetId });
 
-  if (budget.userID.toString() !== userId) {
-    throw new ForbiddenError(
-      "You are not authorized to delete this budget"
-    );
-  }
+    if (!exists) {
+      throw new NotFoundError("Budget not found");
+    }
 
-  await BudgetModel.findByIdAndDelete(budgetId);
+    throw new ForbiddenError("You are not authorized to delete this budget");
+  }
 };
 
 const getBudgetByUserId = async (userId) => {

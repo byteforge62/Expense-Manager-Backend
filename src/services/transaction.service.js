@@ -33,19 +33,24 @@ const getTransactionById = async (transactionId, userId) => {
 };
 
 const deleteTransaction = async (transactionId, userId) => {
-  const transaction = await TransactionModel.findById(transactionId);
+  const transaction = await TransactionModel.findOneAndDelete({
+    _id: transactionId,
+    userID: userId,
+  });
 
   if (!transaction) {
-    throw new NotFoundError("Transaction not found");
-  }
+    const exists = await TransactionModel.exists({
+      _id: transactionId,
+    });
 
-  if (transaction.userID.toString() !== userId) {
+    if (!exists) {
+      throw new NotFoundError("Transaction not found");
+    }
+
     throw new ForbiddenError(
       "You are not authorized to delete this transaction",
     );
   }
-
-  await TransactionModel.findByIdAndDelete(transactionId);
 };
 
 const getTransactionByUserId = async (userId) => {
