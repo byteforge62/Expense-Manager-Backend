@@ -1,5 +1,8 @@
 const express = require("express");
-const {requireAuth} = require("../middleware/auth.middleware");
+const { requireAuth } = require("../middleware/auth.middleware");
+const validate = require("../middleware/validate.middleware");
+const { askAISchema } = require("../validations/ai.validation");
+
 const {
   askAI,
   getExpenseInsights,
@@ -13,24 +16,18 @@ const {
 
 const router = express.Router();
 
-/**
- * --- AI POWERED FEATURES ---
- * Endpoints for intelligent financial analysis and chat.
- */
-
 // General chat assistant
-router.post("/ask",requireAuth, askAI);
+router.post("/ask", requireAuth, validate({ body: askAISchema }), askAI);
 
 // Data analysis and planning
-router.get("/expense-insights",requireAuth, getExpenseInsights);
-router.get("/budget-plan",requireAuth, generateBudgetPlan);
-router.get("/spending-risk",requireAuth, detectSpendingRisk);
-router.get("/financial-forecast",requireAuth, getFinancialForecast);
-router.get("/saving-opportunities",requireAuth, detectSavingOpportunities);
-router.get("/financial-health",requireAuth, getFinancialHealthScore);
+router.get("/expense-insights", requireAuth, getExpenseInsights);
+router.get("/budget-plan", requireAuth, generateBudgetPlan);
+router.get("/spending-risk", requireAuth, detectSpendingRisk);
+router.get("/financial-forecast", requireAuth, getFinancialForecast);
+router.get("/saving-opportunities", requireAuth, detectSavingOpportunities);
+router.get("/financial-health", requireAuth, getFinancialHealthScore);
 
 // History and metadata
-router.get("/insights",requireAuth,getAllInsights);
+router.get("/insights", requireAuth, getAllInsights);
 
 module.exports = router;
-
