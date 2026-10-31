@@ -7,6 +7,7 @@ const mongoSanitize = require("express-mongo-sanitize");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./src/docs/swagger");
 const morgan = require("morgan");
+const createCsrfProtection = require("./src/middleware/csrf.middleware");
 require("dotenv").config({ quiet: true });
 
 const userRoutes = require("./src/routes/UserRoutes");
@@ -23,13 +24,15 @@ const reportRoutes = require("./src/routes/ReportRoutes");
 const errorHandler = require("./src/middleware/error.middleware");
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://expense-manager-frontend-topaz.vercel.app",
+]
+
 const corsOptions = {
-  origin: [
-    "http://localhost:5173",
-    "https://expense-manager-frontend-topaz.vercel.app",
-  ],
-  credentials: true,
-};
+  origin: allowedOrigins,
+  credectials: true
+}
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
@@ -68,6 +71,7 @@ app.options("*", cors(corsOptions));
 app.use(morgan("combined"));
 app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
+app.use("/api", createCsrfProtection(allowedOrigins));
 app.use(mongoSanitize());
 app.use("/api/ai", aiLimiter);
 app.use("/api/ai", aiRoutes);

@@ -15,6 +15,7 @@ const {
   loginSchema,
   updateUserSchema,
 } = require("../validations/user.validation");
+const {idParamSchema} = require("../validations/common.validation");
 
 const requireSelfOrAdmin = (req, res, next) => {
   if (
@@ -54,6 +55,7 @@ routes.get(
   "/user/:id",
   requireAuth,
   requireSelfOrAdmin,
+  validate({params: idParamSchema}),
   UserController.GetuserbyId
 );
 
@@ -61,7 +63,10 @@ routes.put(
   "/user/:id",
   requireAuth,
   requireSelfOrAdmin,
-  validate({ body: updateUserSchema }),
+  validate({ 
+    params: idParamSchema,
+    body: updateUserSchema 
+  }),
   UserController.UpdateUser,
 );
 
@@ -69,6 +74,7 @@ routes.delete(
   "/user/:id",
   requireAuth,
   requireRole("Admin"),
+  validate({params: idParamSchema}),
   UserController.DeleteUser
 );
 
@@ -76,6 +82,7 @@ routes.post(
   "/user/upload-profile/:id",
   requireAuth,
   requireSelfOrAdmin,
+  validate({params: idParamSchema}),
   upload.single("profilePic"),
   validateImageSignature,
   UserController.UploadProfilePic

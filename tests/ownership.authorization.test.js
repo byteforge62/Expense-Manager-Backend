@@ -73,7 +73,7 @@ describe("Cross-user resource ownership authorization", () => {
         .get(`/api/budget/${budgetId}`)
         .set("Authorization", `Bearer ${userBToken}`);
 
-      expect(response.statusCode).toBe(403);
+      expect(response.statusCode).toBe(404);
     });
 
     test("another user cannot delete the budget", async () => {
@@ -118,7 +118,7 @@ describe("Cross-user resource ownership authorization", () => {
         .get(`/api/bill/${billId}`)
         .set("Authorization", `Bearer ${userBToken}`);
 
-      expect(response.statusCode).toBe(403);
+      expect(response.statusCode).toBe(404);
     });
 
     test("another user cannot delete the bill", async () => {

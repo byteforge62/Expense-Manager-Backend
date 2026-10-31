@@ -57,6 +57,7 @@ describe("Auth Flow", () => {
 
     const res = await request(app)
       .post("/api/user/refresh-token")
+      .set("Origin", "http://localhost:5173")
       .set("Cookie", oldRefreshCookie);
 
     expect(res.statusCode).toBe(200);
@@ -73,6 +74,7 @@ describe("Auth Flow", () => {
     // The previous refresh token must no longer work.
     const oldTokenRes = await request(app)
       .post("/api/user/refresh-token")
+      .set("Origin", "http://localhost:5173")
       .set("Cookie", oldRefreshCookie);
 
     expect(oldTokenRes.statusCode).toBe(401);
@@ -80,6 +82,7 @@ describe("Auth Flow", () => {
     // The newly issued refresh token must work.
     const newTokenRes = await request(app)
       .post("/api/user/refresh-token")
+      .set("Origin", "http://localhost:5173")
       .set("Cookie", currentRefreshCookie);
 
     expect(newTokenRes.statusCode).toBe(200);
@@ -94,17 +97,18 @@ describe("Auth Flow", () => {
     currentRefreshCookie = latestRefreshTokenCookie.split(";")[0];
   });
 
-  
-  test("Concurrent refresh requests allow only one successful rotation", async () => {
-    const sharedRefreshCookie = currentRefreshCookie;
 
+  test("Concurrent refresh requests allow only one successful rotation", async () => {
     const results = await Promise.all([
       request(app)
         .post("/api/user/refresh-token")
-        .set("Cookie", sharedRefreshCookie),
+        .set("Origin", "http://localhost:5173")
+        .set("Cookie", currentRefreshCookie),
+
       request(app)
         .post("/api/user/refresh-token")
-        .set("Cookie", sharedRefreshCookie),
+        .set("Origin", "http://localhost:5173")
+        .set("Cookie", currentRefreshCookie),
     ]);
 
     const statuses = results.map((res) => res.statusCode);
@@ -127,16 +131,18 @@ describe("Auth Flow", () => {
   test("Logout revokes the current refresh token", async () => {
     const logoutRes = await request(app)
       .post("/api/user/logout")
+      .set("Origin", "http://localhost:5173")
       .set("Cookie", currentRefreshCookie);
 
     expect(logoutRes.statusCode).toBe(200);
 
     const refreshRes = await request(app)
       .post("/api/user/refresh-token")
+      .set("Origin", "http://localhost:5173")
       .set("Cookie", currentRefreshCookie);
 
     expect(refreshRes.statusCode).toBe(401);
   });
 
-  
+
 });

@@ -16,16 +16,13 @@ const getAllBudget = async () => {
 };
 
 const getBudgetById = async (budgetId, userId) => {
-  const budget = await BudgetModel.findById(budgetId);
+  const budget = await BudgetModel.findOne({
+    _id: budgetId,
+    userID: userId,
+  });
 
   if (!budget) {
     throw new NotFoundError("Budget not found");
-  }
-
-  if (budget.userID.toString() !== userId) {
-    throw new ForbiddenError(
-      "You are not authorized to access this budget"
-    );
   }
 
   return budget;
@@ -55,9 +52,9 @@ const getBudgetByUserId = async (userId) => {
 };
 
 module.exports = {
-    addBudget,
-    getAllBudget,
-    getBudgetById,
-    deleteBudget,
-    getBudgetByUserId
+  addBudget,
+  getAllBudget,
+  getBudgetById,
+  deleteBudget,
+  getBudgetByUserId
 }

@@ -18,6 +18,7 @@ describe("Refresh token validation", () => {
   test("rejects an invalid refresh token", async () => {
     const res = await request(app)
       .post("/api/user/refresh-token")
+      .set("Origin", "http://localhost:5173")
       .set("Cookie", "refreshToken=not-a-valid-refresh-token");
 
     expect(res.statusCode).toBe(401);
@@ -36,6 +37,7 @@ describe("Refresh token validation", () => {
 
     const res = await request(app)
       .post("/api/user/refresh-token")
+      .set("Origin", "http://localhost:5173")
       .set("Cookie", `refreshToken=${expiredToken}`);
 
     expect(res.statusCode).toBe(401);
@@ -63,6 +65,7 @@ describe("Refresh token validation", () => {
 
     const res = await request(app)
       .post("/api/user/refresh-token")
+      .set("Origin", "http://localhost:5173")
       .set("Cookie", `refreshToken=${token}`);
 
     expect(res.statusCode).toBe(401);

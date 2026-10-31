@@ -16,16 +16,13 @@ const getAllBills = async () => {
 };
 
 const getBillById = async (billId, userId) => {
-  const bill = await BillModel.findById(billId);
+  const bill = await BillModel.findOne({
+    _id: billId,
+    userID: userId,
+  });
 
   if (!bill) {
     throw new NotFoundError("Bill not found");
-  }
-
-  if (bill.userID.toString() !== userId) {
-    throw new ForbiddenError(
-      "You are not authorized to access this bill"
-    );
   }
 
   return bill;
