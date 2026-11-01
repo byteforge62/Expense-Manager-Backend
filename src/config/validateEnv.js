@@ -1,9 +1,12 @@
 
 const validateEnv = () => {
+  const isE2E = process.env.NODE_ENV === "e2e";
+  const isTest = process.env.NODE_ENV === "test";
+
   const requiredVariables = [
     "JWT_SECRET",
     "REFRESH_SECRET",
-    "MONGO_URI",
+    isE2E ? "MONGO_URI_E2E" : isTest ? "MONGO_URI_TEST" : "MONGO_URI",
   ];
 
   const missingVariables = requiredVariables.filter(
@@ -20,19 +23,12 @@ const validateEnv = () => {
     const secret = process.env[name];
 
     if (secret.length < 32) {
-      throw new Error(
-        `${name} must contain at least 32 characters.`,
-      );
+      throw new Error(`${name} must contain at least 32 characters.`);
     }
-  }
 
-  if (
-    process.env.JWT_SECRET === "your-secret-key" ||
-    process.env.JWT_SECRET === "secret"
-  ) {
-    throw new Error(
-      "JWT_SECRET must be configured with a strong secret.",
-    );
+    if (["your-secret-key", "secret"].includes(secret)) {
+      throw new Error(`${name} must use a strong secret.`);
+    }
   }
 };
 
