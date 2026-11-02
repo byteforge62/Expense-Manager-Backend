@@ -26,12 +26,13 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://localhost:5174",
   "https://expense-manager-frontend-topaz.vercel.app",
 ]
 
 const corsOptions = {
   origin: allowedOrigins,
-  credectials: true
+  credentials: true
 }
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

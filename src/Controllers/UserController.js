@@ -2,6 +2,16 @@ const { sendSuccess } = require("../utiles/response");
 const asyncHandler = require("../middleware/asyncHandler");
 const UserService = require("../services/user.service");
 
+const getCookieOptions = () => {
+  const isProduction = process.env.NODE_ENV === "production";
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+    path: "/"
+  }
+}
+
 const GetAllusers = asyncHandler(async (req, res) => {
   const users = await UserService.getAllUsers();
   return sendSuccess(res, 200, "users found successfully", users);
@@ -31,12 +41,7 @@ const SignupUser = asyncHandler(async (req, res) => {
 const LoginUser = asyncHandler(async (req, res) => {
   const result = await UserService.loginUser(req.body);
 
-  const cookieOptions = {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-  };
+  const cookieOptions = getCookieOptions();
 
   res.cookie("accessToken", result.accessToken, {
     ...cookieOptions,
@@ -59,12 +64,7 @@ const RefreshToken = asyncHandler(async (req, res) => {
     req.cookies?.refreshToken,
   );
 
-  const cookieOptions = {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-  };
+  const cookieOptions = getCookieOptions();
 
   res.cookie("accessToken", tokens.accessToken, {
     ...cookieOptions,
@@ -84,12 +84,7 @@ const RefreshToken = asyncHandler(async (req, res) => {
 const LogoutUser = asyncHandler(async (req, res) => {
   await UserService.revokeRefreshToken(req.cookies?.refreshToken);
 
-  const cookieOptions = {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-  };
+  const cookieOptions = getCookieOptions();
 
   res.clearCookie("accessToken", cookieOptions);
   res.clearCookie("refreshToken", cookieOptions);
