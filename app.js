@@ -21,6 +21,7 @@ const systemlogRoutes = require("./src/routes/SystemlogRoutes");
 const billRoutes = require("./src/routes/BillRoutes");
 const aiRoutes = require("./src/routes/aiRoutes");
 const reportRoutes = require("./src/routes/ReportRoutes");
+const purchaseIntelligenceRoutes = require("./src/modules/purchase-intelligence/routes/purchase-intelligence.routes");
 const errorHandler = require("./src/middleware/error.middleware");
 const app = express();
 
@@ -96,6 +97,7 @@ app.use("/api", budgetRoutes);
 app.use("/api", systemlogRoutes);
 app.use("/api", billRoutes);
 app.use("/api", reportRoutes);
+app.use("/api/purchase-intelligence", purchaseIntelligenceRoutes);
 app.use(errorHandler);
 
 module.exports = app;
