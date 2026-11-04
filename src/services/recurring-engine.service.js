@@ -3,8 +3,33 @@ const ExpenseModel = require("../models/ExpenseModel");
 const IncomeModel = require("../models/IncomeModel");
 const CategoryModel = require("../models/CategoryModel");
 
-const addFrequency = (date, frequency) => {
+
+const getAnchorDay = (date, schedule = {}) => {
+  const anchorDay = Number(schedule.recurrenceAnchorDay);
+
+  return Number.isInteger(anchorDay) && anchorDay >= 1 && anchorDay <= 31
+    ? anchorDay
+    : date.getUTCDate();
+};
+
+const getAnchorMonth = (date, schedule = {}) => {
+  const anchorMonth = Number(schedule.recurrenceAnchorMonth);
+
+  return Number.isInteger(anchorMonth) && anchorMonth >= 0 && anchorMonth <= 11
+    ? anchorMonth
+    : date.getUTCMonth();
+};
+
+const getLastDayOfMonth = (year, month) => {
+  return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+};
+
+const addFrequency = (date, frequency, schedule = {}) => {
   const next = new Date(date);
+
+  if (Number.isNaN(next.getTime())) {
+    throw new TypeError("A valid recurrence date is required");
+  }
 
   switch (frequency) {
     case "daily":
@@ -16,41 +41,40 @@ const addFrequency = (date, frequency) => {
       break;
 
     case "monthly": {
-      const originalDay = next.getUTCDate();
+      const anchorDay = getAnchorDay(next, schedule);
 
       next.setUTCDate(1);
       next.setUTCMonth(next.getUTCMonth() + 1);
 
-      const lastDay = new Date(
-        Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0),
-      ).getUTCDate();
+      const lastDay = getLastDayOfMonth(
+        next.getUTCFullYear(),
+        next.getUTCMonth(),
+      );
 
-      next.setUTCDate(Math.min(originalDay, lastDay));
+      next.setUTCDate(Math.min(anchorDay, lastDay));
       break;
     }
 
     case "yearly": {
-      const originalMonth = next.getUTCMonth();
-      const originalDay = next.getUTCDate();
+      const anchorDay = getAnchorDay(next, schedule);
+      const anchorMonth = getAnchorMonth(next, schedule);
+      const targetYear = next.getUTCFullYear() + 1;
 
-      next.setUTCDate(1);
-      next.setUTCFullYear(next.getUTCFullYear() + 1);
-      next.setUTCMonth(originalMonth);
+      const lastDay = getLastDayOfMonth(targetYear, anchorMonth);
 
-      const lastDay = new Date(
-        Date.UTC(next.getUTCFullYear(), originalMonth + 1, 0),
-      ).getUTCDate();
-
-      next.setUTCDate(Math.min(originalDay, lastDay));
+      next.setUTCFullYear(targetYear);
+      next.setUTCMonth(anchorMonth);
+      next.setUTCDate(Math.min(anchorDay, lastDay));
       break;
     }
 
     default:
-      throw new Error(`Unsupported recurring frequency: ${frequency}`);
+      throw new TypeError(`Unsupported recurring frequency: ${frequency}`);
   }
 
   return next;
 };
+
 
 const createExpenseOccurrence = async (recurring, occurrenceDate) => {
   const category = await CategoryModel.findOne({

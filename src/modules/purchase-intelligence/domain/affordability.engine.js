@@ -27,7 +27,7 @@ const normalizeTransactions = (transactions, cutoff, now) =>
         !Number.isNaN(transaction.date.getTime()) &&
         transaction.date >= cutoff &&
         transaction.date <= now,
-);
+    );
 
 const addFrequency = (date, frequency) => {
   const next = new Date(date);
@@ -113,6 +113,12 @@ const normalizeRecurringSchedules = (schedules) =>
       type: String(schedule.type || "").toUpperCase(),
       frequency: String(schedule.frequency || "").toLowerCase(),
       nextDate: new Date(schedule.nextDate),
+      recurrenceAnchorDay: Number(schedule.recurrenceAnchorDay) || null,
+      recurrenceAnchorMonth:
+        schedule.recurrenceAnchorMonth === undefined ||
+          schedule.recurrenceAnchorMonth === null
+          ? null
+          : Number(schedule.recurrenceAnchorMonth),
     }))
     .filter(
       (schedule) =>
@@ -124,7 +130,7 @@ const normalizeRecurringSchedules = (schedules) =>
           schedule.frequency,
         ) &&
         !Number.isNaN(schedule.nextDate.getTime()),
-);
+    );
 
 const calculateRecurringOccurrences = (schedules, now, horizonEnd) => {
   const totals = {
@@ -159,6 +165,7 @@ const calculateRecurringOccurrences = (schedules, now, horizonEnd) => {
       occurrenceDate = addFrequency(
         occurrenceDate,
         schedule.frequency,
+        schedule,
       );
     }
   }
@@ -179,7 +186,7 @@ const normalizePendingBills = (bills, now, horizonEnd) =>
         bill.amount > 0 &&
         !Number.isNaN(bill.dueDate.getTime()) &&
         bill.dueDate <= horizonEnd,
-);
+    );
 
 const calculateAffordability = ({
   availableCash,

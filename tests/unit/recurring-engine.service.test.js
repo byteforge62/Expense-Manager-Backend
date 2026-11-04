@@ -363,3 +363,64 @@ describe("Recurring transaction engine", () => {
     });
   });
 });
+
+
+describe("addFrequency recurrence anchors", () => {
+  const {
+    addFrequency,
+  } = require("../../src/services/recurring-engine.service");
+
+  test("preserves day 31 after a February occurrence", () => {
+    const anchor = {
+      recurrenceAnchorDay: 31,
+      recurrenceAnchorMonth: 0,
+    };
+
+    const february = addFrequency(
+      new Date("2027-01-31T00:00:00.000Z"),
+      "monthly",
+      anchor,
+    );
+
+    const march = addFrequency(february, "monthly", anchor);
+
+    expect(february.toISOString()).toBe("2027-02-28T00:00:00.000Z");
+    expect(march.toISOString()).toBe("2027-03-31T00:00:00.000Z");
+  });
+
+  test("preserves leap-day yearly recurrence", () => {
+    const anchor = {
+      recurrenceAnchorDay: 29,
+      recurrenceAnchorMonth: 1,
+    };
+
+    const nextYear = addFrequency(
+      new Date("2024-02-29T00:00:00.000Z"),
+      "yearly",
+      anchor,
+    );
+
+    const followingYear = addFrequency(nextYear, "yearly", anchor);
+
+    expect(nextYear.toISOString()).toBe("2025-02-28T00:00:00.000Z");
+    expect(followingYear.toISOString()).toBe("2026-02-28T00:00:00.000Z");
+  });
+
+  test("preserves the original month and day after a leap year", () => {
+    const anchor = {
+      recurrenceAnchorDay: 29,
+      recurrenceAnchorMonth: 1,
+    };
+
+    const nextYear = addFrequency(
+      new Date("2024-02-29T00:00:00.000Z"),
+      "yearly",
+      anchor,
+    );
+
+    const leapYear = addFrequency(nextYear, "yearly", anchor);
+
+    expect(leapYear.toISOString()).toBe("2026-02-28T00:00:00.000Z");
+  });
+});
+
