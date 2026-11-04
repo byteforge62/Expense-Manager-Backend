@@ -9,8 +9,9 @@ const BillSchema = new Schema(
       required: true,
     },
     name: {
-      type: String, // e.g., "Electricity Bill"
+      type: String,
       required: true,
+      trim: true,
     },
     dueDate: {
       type: Date,
@@ -19,11 +20,21 @@ const BillSchema = new Schema(
     amount: {
       type: Number,
       required: true,
+      min: 0,
     },
     status: {
       type: String,
       enum: ["pending", "paid"],
       default: "pending",
+    },
+    settledExpenseId: {
+      type: Schema.Types.ObjectId,
+      ref: "expense",
+      default: undefined,
+    },
+    settledAt: {
+      type: Date,
+      default: undefined,
     },
   },
   {
@@ -32,12 +43,24 @@ const BillSchema = new Schema(
 );
 
 BillSchema.index({
-  userID:1,
-  dueDate:1
+  userID: 1,
+  dueDate: 1,
 });
+
 BillSchema.index({
-  userID:1,
-  status:1
+  userID: 1,
+  status: 1,
 });
+
+BillSchema.index(
+  { settledExpenseId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      settledExpenseId: { $type: "objectId" },
+    },
+    name: "unique_bill_settlement_expense",
+  },
+);
 
 module.exports = mongoose.model("bill", BillSchema);

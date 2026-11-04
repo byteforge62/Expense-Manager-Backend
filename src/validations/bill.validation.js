@@ -1,4 +1,10 @@
+
 const { z } = require("zod");
+
+const objectIdSchema = z.string().regex(
+  /^[0-9a-fA-F]{24}$/,
+  "Invalid MongoDB ID",
+);
 
 const createBillSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -7,4 +13,11 @@ const createBillSchema = z.object({
   status: z.enum(["pending", "paid"]).optional(),
 }).strict();
 
-module.exports = { createBillSchema };
+const settleBillSchema = z.object({
+  expenseId: objectIdSchema,
+}).strict();
+
+module.exports = {
+  createBillSchema,
+  settleBillSchema,
+};
