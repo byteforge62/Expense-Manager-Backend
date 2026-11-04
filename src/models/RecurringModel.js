@@ -13,6 +13,12 @@ const recurringSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    type:{
+      type: String,
+      enum:["INCOME","EXPENSE","UNCLASSIFIED"],
+      default: "UNCLASSIFIED",
+      required: true,
+    },
     frequency: {
       type: String,
       enum: ["daily", "weekly", "monthly", "yearly"],
@@ -45,6 +51,12 @@ recurringSchema.index({
    userId:1,
    isActive:1
 });
+
+recurringSchema.index({
+  type: 1,
+  isActive: 1,
+  nextDate: 1,
+})
 
 module.exports = mongoose.model("recurring", recurringSchema);
 
