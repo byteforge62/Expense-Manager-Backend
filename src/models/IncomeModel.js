@@ -18,6 +18,17 @@ const IncomeSchema = new Schema(
       type: Date,
       default: Date.now,
     },
+    recurringId: {
+      type: Schema.Types.ObjectId,
+      ref: "recurring",
+      default: undefined,
+      select: false,
+    },
+    recurringOccurenceDate: {
+      type: Date,
+      default: undefined,
+      select: false,
+    },
   },
   {
     timestamps: true,
@@ -26,6 +37,20 @@ const IncomeSchema = new Schema(
 
 IncomeSchema.index({
   userID:1,
-  date:-1
+  recurringId: 1,
+  recurringOccurrenceDate: 1,
+},
+{
+  unique: true,
+  partialFilterExpression:{
+    recurringId: { $type: "objectId"},
+    recurringOccurrenceDate: {$type: "date"},
+  },
+  name:"unique_recurring_income_occurence",
 });
+
+IncomeSchema.index({
+  userID: 1,
+  date: -1,
+})
 module.exports = mongoose.model("income", IncomeSchema);
