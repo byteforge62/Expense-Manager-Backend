@@ -24,7 +24,7 @@ const IncomeSchema = new Schema(
       default: undefined,
       select: false,
     },
-    recurringOccurenceDate: {
+    recurringOccurrenceDate: {
       type: Date,
       default: undefined,
       select: false,
@@ -46,7 +46,7 @@ IncomeSchema.index({
     recurringId: { $type: "objectId"},
     recurringOccurrenceDate: {$type: "date"},
   },
-  name:"unique_recurring_income_occurence",
+  name:"unique_recurring_income_occurrence",
 });
 
 IncomeSchema.index({

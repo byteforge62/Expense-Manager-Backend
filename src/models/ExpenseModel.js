@@ -28,7 +28,7 @@ const ExpenseSchema = new Schema(
       default: undefined,
       select: false,
     },
-    recurringOccurenceDate: {
+    recurringOccurrenceDate: {
       type: Date,
       default: undefined,
       select: false,
