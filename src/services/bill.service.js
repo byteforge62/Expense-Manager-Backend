@@ -52,7 +52,7 @@ const deleteBill = async (billId, userId) => {
 const getBillByUserId = async (userId) => {
   return BillModel.find({
     userID: userId,
-  }).populate("userID");
+  })
 };
 
 const settleBill = async (billId, expenseId, userId) => {
