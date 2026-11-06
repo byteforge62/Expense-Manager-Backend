@@ -2,10 +2,18 @@ const { z } = require("zod");
 
 const recurringFields = {
   title: z.string().trim().min(1, "Title is required").max(100),
-  amount: z.coerce.number().finite().positive("Amount must be greater than 0"),
+
+  amount: z.coerce
+    .number()
+    .finite()
+    .positive("Amount must be greater than 0"),
+
   category: z.string().trim().min(1, "Category is required").max(100),
-  type: z.enum(["INCOME","EXPENSE","UNCLASSIFIED"]).default("UNCLASSIFIED"),
+
+  type: z.enum(["INCOME", "EXPENSE"]),
+
   frequency: z.enum(["daily", "weekly", "monthly", "yearly"]),
+
   nextDate: z.coerce.date(),
 };
 
