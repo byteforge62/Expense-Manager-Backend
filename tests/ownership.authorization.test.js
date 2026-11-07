@@ -244,6 +244,7 @@ describe("Cross-user resource ownership authorization", () => {
           title: "Ownership Test Recurring",
           amount: 300,
           category: "Utilities",
+          type:"EXPENSE",
           frequency: "monthly",
           nextDate: new Date(Date.now() + 86400000),
         });

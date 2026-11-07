@@ -67,7 +67,9 @@ const getBillByUserId = async (userId) => {
   return bills;
 };
 
+
 const settleBill = async (billId, expenseId, userId) => {
+  // 1. Confirm that the bill belongs to the authenticated user.
   const bill = await BillModel.findOne({
     _id: billId,
     userID: userId,
@@ -85,6 +87,7 @@ const settleBill = async (billId, expenseId, userId) => {
     );
   }
 
+  // 2. Confirm that the expense belongs to the same user.
   const expense = await ExpenseModel.findOne({
     _id: expenseId,
     userID: userId,
@@ -96,9 +99,10 @@ const settleBill = async (billId, expenseId, userId) => {
     );
   }
 
+  // 3. Reject attempts to replace an existing expense relationship.
   if (
     bill.settledExpenseId &&
-    bill.settledExpenseId.toString() !== expenseId
+    bill.settledExpenseId.toString() !== expenseId.toString()
   ) {
     throw new ConflictError(
       "This bill is already linked to another expense",
@@ -106,6 +110,8 @@ const settleBill = async (billId, expenseId, userId) => {
   }
 
   try {
+    // 4. Atomically claim the bill only if it is unlinked
+    // or already linked to this exact expense.
     const updatedBill = await BillModel.findOneAndUpdate(
       {
         _id: billId,
@@ -127,7 +133,7 @@ const settleBill = async (billId, expenseId, userId) => {
         new: true,
         runValidators: true,
       },
-    );
+    ).select("-userID");
 
     if (!updatedBill) {
       throw new ConflictError(
@@ -146,6 +152,7 @@ const settleBill = async (billId, expenseId, userId) => {
     throw error;
   }
 };
+
 
 module.exports = {
   addBill,
