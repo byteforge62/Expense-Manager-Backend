@@ -128,6 +128,20 @@ Authorization: Bearer <access-token>
 
 Consult the route definitions in `src/routes/` for the exact endpoint paths, HTTP methods, request schemas, and authorization requirements.
 
+### Financial Intelligence
+
+The authenticated `GET /api/financial-intelligence/overview` endpoint returns
+user-scoped financial metrics, comparable-period behavioral observations,
+statistical anomalies, an explainable financial-health assessment, and
+evidence-linked recommendations. It accepts optional `startDate` and `endDate`
+ISO 8601 query parameters and compares equal-length inclusive UTC calendar
+periods. The health score is `null` when the selected history or recorded
+income across at least two receipt days is insufficient. The selected period
+is limited to 366 inclusive UTC calendar days. See
+[`src/modules/financial-intelligence/README.md`](./src/modules/financial-intelligence/README.md)
+for the response fields, calculations, thresholds, limitations, and ownership
+rules.
+
 ## Security Notes
 
 - Keep environment secrets out of source control.

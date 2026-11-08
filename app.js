@@ -23,6 +23,7 @@ const aiRoutes = require("./src/routes/aiRoutes");
 const reportRoutes = require("./src/routes/ReportRoutes");
 const purchaseIntelligenceRoutes = require("./src/modules/purchase-intelligence/routes/purchase-intelligence.routes");
 const financialForecastRoutes = require("./src/modules/financial-forecasting/routes/financial-forecast.routes");
+const financialIntelligenceRoutes = require("./src/modules/financial-intelligence/routes/financial-intelligence.routes");
 const errorHandler = require("./src/middleware/error.middleware");
 const app = express();
 
@@ -100,6 +101,7 @@ app.use("/api", billRoutes);
 app.use("/api", reportRoutes);
 app.use("/api/purchase-intelligence", purchaseIntelligenceRoutes);
 app.use("/api/financial-forecast",financialForecastRoutes);
+app.use("/api/financial-intelligence", financialIntelligenceRoutes);
 app.use(errorHandler);
 
 module.exports = app;
