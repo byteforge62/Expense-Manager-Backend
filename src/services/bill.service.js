@@ -1,27 +1,58 @@
-
 const BillModel = require("../models/BillModel");
 const ExpenseModel = require("../models/ExpenseModel");
 
 const NotFoundError = require("../errors/NotFoundError");
 const ForbiddenError = require("../errors/ForbiddenError");
 const ConflictError = require("../errors/ConflictError");
+const events = require("../infrastructure/events/event-bus");
+const EVENTS = require("../infrastructure/events/event-names");
+const audit = require("../infrastructure/audit/audit.service");
+const { executeListQuery, buildSort } = require("../utiles/list-query");
 
-const addBill = async (data, userId) => {
-  return BillModel.create({
+/**
+ * Bill service.
+ *
+ * Settlement remains an explicit user action. Nothing here marks a bill paid
+ * because its due date passed; the automation layer only observes.
+ *
+ * The debug `console.log` calls that printed bill ownership fields were
+ * removed: they leaked record identifiers to stdout on every list request.
+ */
+
+const BILL_LIST_PROJECTION =
+  "name dueDate amount status settledExpenseId settledAt createdAt updatedAt";
+
+const addBill = async (data, userId, context = {}) => {
+  const bill = await BillModel.create({
     ...data,
     userID: userId,
   });
+
+  audit.record({
+    userID: userId,
+    action: "bill.created",
+    description: "Bill created",
+    requestId: context.requestId,
+    metadata: { billId: String(bill._id) },
+  });
+
+  return bill;
 };
 
-const getAllBills = async () => {
-  return BillModel.find();
-};
+const getAllBills = async (filter = {}) =>
+  executeListQuery({
+    model: BillModel,
+    filter: {},
+    select: `${BILL_LIST_PROJECTION} userID`,
+    sort: buildSort(filter.sortBy, filter.sortOrder, "dueDate"),
+    params: filter,
+  });
 
 const getBillById = async (billId, userId) => {
   const bill = await BillModel.findOne({
     _id: billId,
     userID: userId,
-  });
+  }).lean();
 
   if (!bill) {
     throw new NotFoundError("Bill not found");
@@ -30,7 +61,7 @@ const getBillById = async (billId, userId) => {
   return bill;
 };
 
-const deleteBill = async (billId, userId) => {
+const deleteBill = async (billId, userId, context = {}) => {
   const bill = await BillModel.findOneAndDelete({
     _id: billId,
     userID: userId,
@@ -47,28 +78,56 @@ const deleteBill = async (billId, userId) => {
       "You are not authorized to delete this bill",
     );
   }
-};
 
-const getBillByUserId = async (userId) => {
-  const bills = await BillModel.find({
+  audit.record({
     userID: userId,
-  }).select("-userID");
+    action: "bill.deleted",
+    description: "Bill deleted",
+    requestId: context.requestId,
+    metadata: { billId: String(bill._id) },
+  });
 
-  console.log("BILLS QUERY:", bills.length);
-  console.log(
-    "USERID POPULATED:",
-    bills[0]?.populated("userID")
-  );
-  console.log(
-    "USERID VALUE:",
-    bills[0]?.userID
-  );
-
-  return bills;
+  return bill;
 };
 
+const buildBillFilter = (userId, filter = {}) => {
+  const query = { userID: userId };
 
-const settleBill = async (billId, expenseId, userId) => {
+  if (filter.status) {
+    query.status = filter.status;
+  }
+
+  const dueRange = {};
+
+  if (filter.dueAfter) {
+    dueRange.$gte = new Date(filter.dueAfter);
+  }
+
+  if (filter.dueBefore) {
+    dueRange.$lte = new Date(filter.dueBefore);
+  }
+
+  if (Object.keys(dueRange).length > 0) {
+    query.dueDate = dueRange;
+  }
+
+  if (filter.search) {
+    query.name = { $regex: filter.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+  }
+
+  return query;
+};
+
+const getBillByUserId = async (userId, filter = {}) =>
+  executeListQuery({
+    model: BillModel,
+    filter: buildBillFilter(userId, filter),
+    select: BILL_LIST_PROJECTION,
+    sort: buildSort(filter.sortBy, filter.sortOrder, "dueDate"),
+    params: filter,
+  });
+
+const settleBill = async (billId, expenseId, userId, context = {}) => {
   // 1. Confirm that the bill belongs to the authenticated user.
   const bill = await BillModel.findOne({
     _id: billId,
@@ -91,7 +150,9 @@ const settleBill = async (billId, expenseId, userId) => {
   const expense = await ExpenseModel.findOne({
     _id: expenseId,
     userID: userId,
-  }).select("_id");
+  })
+    .select("_id")
+    .lean();
 
   if (!expense) {
     throw new NotFoundError(
@@ -141,6 +202,29 @@ const settleBill = async (billId, expenseId, userId) => {
       );
     }
 
+    // Only the write that actually performed the transition notifies:
+    // re-settling the same bill with the same expense is a no-op for consumers.
+    if (!bill.settledExpenseId) {
+      await events.emit(
+        EVENTS.BILL_SETTLED,
+        {
+          userId: String(userId),
+          billId: String(updatedBill._id),
+          expenseId: String(expenseId),
+          settledAt: (updatedBill.settledAt || new Date()).toISOString(),
+        },
+        { requestId: context.requestId, source: "bill.service" },
+      );
+    }
+
+    audit.record({
+      userID: userId,
+      action: "bill.settled",
+      description: "Bill settled and linked to an expense",
+      requestId: context.requestId,
+      metadata: { billId: String(updatedBill._id), expenseId: String(expenseId) },
+    });
+
     return updatedBill;
   } catch (error) {
     if (error.code === 11000) {
@@ -152,7 +236,6 @@ const settleBill = async (billId, expenseId, userId) => {
     throw error;
   }
 };
-
 
 module.exports = {
   addBill,

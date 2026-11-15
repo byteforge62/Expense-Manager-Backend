@@ -1,25 +1,31 @@
 const asyncHandler = require("../middleware/asyncHandler");
 const BudgetService = require("../services/budget.service");
-const {sendSuccess} = require("../utiles/response");
+const { sendSuccess } = require("../utiles/response");
 
 const AddBudget = asyncHandler(async (req, res) => {
-  const budget = await BudgetService.addBudget(req.body, req.user.id);
+  const budget = await BudgetService.addBudget(req.body, req.user.id, {
+    requestId: req.id,
+  });
   return sendSuccess(
     res,
     201,
     "Budget added successfully",
-    budget
+    budget,
   );
 });
 
 const GetAllbudget = asyncHandler(async (req, res) => {
-  const budgets = await BudgetService.getAllBudget();
+  const { items, meta } = await BudgetService.getAllBudget({
+    ...req.query,
+    requestId: req.id,
+  });
 
   return sendSuccess(
     res,
     200,
     "Budgets fetched successfully",
-    budgets
+    items,
+    meta,
   );
 });
 
@@ -38,10 +44,9 @@ const GetBudgetbyID = asyncHandler(async (req, res) => {
 });
 
 const DeleteBudget = asyncHandler(async (req, res) => {
-  await BudgetService.deleteBudget(
-    req.params.id,
-    req.user.id
-  );
+  await BudgetService.deleteBudget(req.params.id, req.user.id, {
+    requestId: req.id,
+  });
 
   return sendSuccess(
     res,
@@ -51,15 +56,35 @@ const DeleteBudget = asyncHandler(async (req, res) => {
 });
 
 const GetBudgetbyUserID = asyncHandler(async (req, res) => {
-  const budgets = await BudgetService.getBudgetByUserId(
-    req.user.id
+  const { items, meta } = await BudgetService.getBudgetByUserId(
+    req.user.id,
+    { ...req.query, requestId: req.id },
   );
 
   return sendSuccess(
     res,
     200,
     "Budget found successfully",
-    budgets
+    items,
+    meta,
+  );
+});
+
+const GetBudgetUtilization = asyncHandler(async (req, res) => {
+  const utilization = await BudgetService.getBudgetUtilization(req.user.id, {
+    budgetId: req.query.budgetId,
+  });
+
+  return sendSuccess(
+    res,
+    200,
+    "Budget utilization fetched successfully",
+    utilization,
+    {
+      derived: true,
+      source: "budget_utilization",
+      requestId: req.id,
+    },
   );
 });
 
@@ -69,5 +94,5 @@ module.exports = {
   GetBudgetbyID,
   DeleteBudget,
   GetBudgetbyUserID,
+  GetBudgetUtilization,
 };
-

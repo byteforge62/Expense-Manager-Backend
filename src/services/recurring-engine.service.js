@@ -3,6 +3,23 @@ const ExpenseModel = require("../models/ExpenseModel");
 const IncomeModel = require("../models/IncomeModel");
 const CategoryModel = require("../models/CategoryModel");
 
+/**
+ * Recurring transaction engine.
+ *
+ * Correctness properties (unchanged from the original implementation):
+ * - an occurrence is written with an upsert behind the
+ *   (userID, recurringId, recurringOccurrenceDate) unique index, so retries
+ *   cannot duplicate a financial record;
+ * - the schedule is advanced with a conditional update on the exact
+ *   occurrence date it owned, so two workers cannot both advance it.
+ *
+ * Added in this revision:
+ * - optional `endDate` support: after the final occurrence the schedule is
+ *   deactivated instead of silently continuing forever;
+ * - an observation hook so automation can publish one event per generated
+ *   occurrence (summaries, notifications, live clients) without changing the
+ *   returned counters.
+ */
 
 const getAnchorDay = (date, schedule = {}) => {
   const anchorDay = Number(schedule.recurrenceAnchorDay);
@@ -75,7 +92,6 @@ const addFrequency = (date, frequency, schedule = {}) => {
   return next;
 };
 
-
 const createExpenseOccurrence = async (recurring, occurrenceDate) => {
   const category = await CategoryModel.findOne({
     name: recurring.category.trim(),
@@ -88,7 +104,7 @@ const createExpenseOccurrence = async (recurring, occurrenceDate) => {
     );
   }
 
-  await ExpenseModel.updateOne(
+  const result = await ExpenseModel.updateOne(
     {
       userID: recurring.userId,
       recurringId: recurring._id,
@@ -111,10 +127,15 @@ const createExpenseOccurrence = async (recurring, occurrenceDate) => {
       setDefaultsOnInsert: false,
     },
   );
+
+  return {
+    categoryID: category._id,
+    transactionId: result?.upsertedId || null,
+  };
 };
 
 const createIncomeOccurrence = async (recurring, occurrenceDate) => {
-  await IncomeModel.updateOne(
+  const result = await IncomeModel.updateOne(
     {
       userID: recurring.userId,
       recurringId: recurring._id,
@@ -136,17 +157,20 @@ const createIncomeOccurrence = async (recurring, occurrenceDate) => {
       setDefaultsOnInsert: false,
     },
   );
+
+  return {
+    categoryID: null,
+    transactionId: result?.upsertedId || null,
+  };
 };
 
 const createOccurrence = async (recurring, occurrenceDate) => {
   if (recurring.type === "EXPENSE") {
-    await createExpenseOccurrence(recurring, occurrenceDate);
-    return;
+    return createExpenseOccurrence(recurring, occurrenceDate);
   }
 
   if (recurring.type === "INCOME") {
-    await createIncomeOccurrence(recurring, occurrenceDate);
-    return;
+    return createIncomeOccurrence(recurring, occurrenceDate);
   }
 
   throw new Error(
@@ -154,7 +178,26 @@ const createOccurrence = async (recurring, occurrenceDate) => {
   );
 };
 
-const processRecurringSchedule = async (initialSchedule, now) => {
+/**
+ * Stops a schedule that has passed its end date. Conditional on the current
+ * occurrence so a concurrent worker cannot be clobbered.
+ */
+const deactivateCompletedSchedule = async (schedule, occurrenceDate) => {
+  const updated = await RecurringModel.findOneAndUpdate(
+    {
+      _id: schedule._id,
+      userId: schedule.userId,
+      isActive: true,
+      nextDate: occurrenceDate,
+    },
+    { $set: { isActive: false } },
+    { new: true },
+  );
+
+  return updated || RecurringModel.findById(schedule._id);
+};
+
+const processRecurringSchedule = async (initialSchedule, now, hooks = {}) => {
   let schedule = initialSchedule;
   let generated = 0;
 
@@ -164,11 +207,53 @@ const processRecurringSchedule = async (initialSchedule, now) => {
     new Date(schedule.nextDate).getTime() <= now.getTime()
   ) {
     const occurrenceDate = new Date(schedule.nextDate);
+    const endDate = schedule.endDate ? new Date(schedule.endDate) : null;
+
+    // Completed schedule: stop generating and deactivate it once.
+    if (endDate && occurrenceDate.getTime() > endDate.getTime()) {
+      schedule = await deactivateCompletedSchedule(schedule, occurrenceDate);
+
+      if (schedule && schedule.isActive) {
+        // Lost the race to another worker that also tried to deactivate.
+        break;
+      }
+
+      break;
+    }
 
     // Idempotent creation: retrying this occurrence cannot create a duplicate.
-    await createOccurrence(schedule, occurrenceDate);
+    const created = await createOccurrence(schedule, occurrenceDate);
 
-    const nextDate = addFrequency(occurrenceDate, schedule.frequency);
+    if (typeof hooks.onOccurrence === "function") {
+      try {
+        await hooks.onOccurrence({
+          userId: schedule.userId,
+          recurringId: schedule._id,
+          type: schedule.type,
+          title: schedule.title,
+          amount: schedule.amount,
+          categoryID: created.categoryID,
+          transactionId: created.transactionId,
+          occurrenceDate,
+        });
+      } catch {
+        // Observation only: the financial record is already persisted and the
+        // schedule must still advance.
+      }
+    }
+
+    const nextDate = addFrequency(
+      occurrenceDate,
+      schedule.frequency,
+      schedule,
+    );
+
+    if (nextDate.getTime() <= occurrenceDate.getTime()) {
+      // Defensive: never loop on a non-advancing recurrence rule.
+      throw new TypeError(
+        `Recurrence for schedule ${schedule._id} did not advance`,
+      );
+    }
 
     // Advance only if this worker still owns the current occurrence.
     const advancedSchedule = await RecurringModel.findOneAndUpdate(
@@ -202,7 +287,7 @@ const processRecurringSchedule = async (initialSchedule, now) => {
   return generated;
 };
 
-const processDueRecurringTransactions = async (now = new Date()) => {
+const processDueRecurringTransactions = async (now = new Date(), hooks = {}) => {
   if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
     throw new TypeError("A valid processing date is required.");
   }
@@ -228,10 +313,12 @@ const processDueRecurringTransactions = async (now = new Date()) => {
       result.occurrencesGenerated += await processRecurringSchedule(
         schedule,
         now,
+        hooks,
       );
     } catch (error) {
       result.failures.push({
         recurringId: schedule._id.toString(),
+        userId: schedule.userId ? schedule.userId.toString() : null,
         message: error.message,
       });
     }

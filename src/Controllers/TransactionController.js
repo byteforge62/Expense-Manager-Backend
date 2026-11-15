@@ -1,11 +1,12 @@
 const asyncHandler = require("../middleware/asyncHandler");
 const TransactionService = require("../services/transaction.service");
-const {sendSuccess} = require("../utiles/response");
+const { sendSuccess } = require("../utiles/response");
 
 const AddTransaction = asyncHandler(async (req, res) => {
   const transaction = await TransactionService.addTransaction(
     req.body,
-    req.user.id
+    req.user.id,
+    { requestId: req.id },
   );
 
   return sendSuccess(
@@ -17,13 +18,17 @@ const AddTransaction = asyncHandler(async (req, res) => {
 });
 
 const GetAlltransaction = asyncHandler(async (req, res) => {
-  const transactions = await TransactionService.getAllTransaction();
+  const { items, meta } = await TransactionService.getAllTransaction({
+    ...req.query,
+    requestId: req.id,
+  });
 
   return sendSuccess(
     res,
     200,
     "Transactions fetched successfully",
-    transactions
+    items,
+    meta
   );
 });
 
@@ -44,7 +49,8 @@ const GettransactionbyID = asyncHandler(async (req, res) => {
 const DeleteTransaction = asyncHandler(async (req, res) => {
   await TransactionService.deleteTransaction(
     req.params.id,
-    req.user.id
+    req.user.id,
+    { requestId: req.id },
   );
 
   return sendSuccess(
@@ -55,15 +61,17 @@ const DeleteTransaction = asyncHandler(async (req, res) => {
 });
 
 const TransactionByUserId = asyncHandler(async (req, res) => {
-  const transactions = await TransactionService.getTransactionByUserId(
-    req.user.id
+  const { items, meta } = await TransactionService.getTransactionByUserId(
+    req.user.id,
+    { ...req.query, requestId: req.id },
   );
 
   return sendSuccess(
     res,
     200,
     "Transactions fetched successfully",
-    transactions
+    items,
+    meta
   );
 });
 
@@ -74,4 +82,3 @@ module.exports = {
   DeleteTransaction,
   TransactionByUserId,
 };
-

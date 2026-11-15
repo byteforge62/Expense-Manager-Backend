@@ -142,6 +142,49 @@ is limited to 366 inclusive UTC calendar days. See
 for the response fields, calculations, thresholds, limitations, and ownership
 rules.
 
+## Platform Architecture (Automation, Events, Real-time)
+
+The backend is a modular monolith: Express controllers and services stay as
+they were, and a background platform now maintains derived data, reminders and
+notifications from domain events.
+
+- **Domain events with an outbox.** Financial writes emit events after the
+  record is persisted. Delivery is at-least-once, retried with backoff and
+dead-lettered; consumers are idempotent.
+- **Scheduled jobs.** Recurring transactions, bill reminders, budget
+  monitoring, summary reconciliation, analytics refresh and retention run under
+  a leased job lock, so multiple instances never run the same job twice. Every
+  run is recorded in `job_runs` for observability.
+- **Derived summaries.** Daily/monthly income and expense aggregates are
+  maintained incrementally and can be rebuilt from authoritative records
+  (`POST /api/summaries/reconcile`).
+- **Notifications.** In-app notifications with categories, priorities,
+  preferences, deduplication, read state and retention.
+- **Real-time updates.** User-scoped Server-Sent Events at
+  `GET /api/realtime/stream` (short-lived token from
+  `POST /api/realtime/token`).
+- **Bounded, paginated list APIs.** List endpoints keep returning `data` as an
+  array (so the current frontend is unaffected) and add an optional `meta`
+  object. Supply `page`/`limit` or `cursor` to paginate.
+- **Operational endpoints.** `GET /health` (liveness), `GET /ready`
+  (readiness) and admin-only `GET /api/ops/runtime`, `/api/ops/jobs`,
+  `/api/ops/events`.
+
+Full audit, API inventory, measured before/after performance, schema changes,
+deployment notes and rollback steps:
+[`docs/BACKEND_ARCHITECTURE.md`](./docs/BACKEND_ARCHITECTURE.md).
+
+Set `JOBS_ENABLED=false` to run the API without any background automation
+(also the default under `NODE_ENV=test`).
+
+### Scripts
+
+```bash
+npm run bench                # benchmark lists/summaries against a disposable DB
+npm run indexes:ensure       # create missing indexes (additive only)
+npm run backfill             # rebuild derived summaries after a deploy
+```
+
 ## Security Notes
 
 - Keep environment secrets out of source control.

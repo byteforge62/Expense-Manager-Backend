@@ -2,43 +2,47 @@ const routes = require("express").Router();
 const TransactionController = require("../Controllers/TransactionController");
 const { requireAuth, requireRole } = require("../middleware/auth.middleware");
 const validate = require("../middleware/validate.middleware");
-const {
-  createTransactionSchema,
-} = require("../validations/transaction.validation");
+const idempotency = require("../middleware/idempotency.middleware");
+const { createTransactionSchema } = require("../validations/transaction.validation");
 const { idParamSchema } = require("../validations/common.validation");
+const { transactionsListQuerySchema } = require("../validations/query.validation");
 
 routes.post(
   "/transaction",
   requireAuth,
   validate({ body: createTransactionSchema }),
-  TransactionController.AddTransaction
+  idempotency(),
+  TransactionController.AddTransaction,
 );
 
 routes.get(
   "/transactions",
   requireAuth,
   requireRole("Admin"),
-  TransactionController.GetAlltransaction
+  validate({ query: transactionsListQuerySchema }),
+  TransactionController.GetAlltransaction,
 );
 
 routes.get(
   "/transaction/:id",
   requireAuth,
   validate({ params: idParamSchema }),
-  TransactionController.GettransactionbyID
+  TransactionController.GettransactionbyID,
 );
 
 routes.delete(
   "/transaction/:id",
   requireAuth,
   validate({ params: idParamSchema }),
-  TransactionController.DeleteTransaction
+  idempotency(),
+  TransactionController.DeleteTransaction,
 );
 
 routes.get(
   "/transactions/me",
   requireAuth,
-  TransactionController.TransactionByUserId
+  validate({ query: transactionsListQuerySchema }),
+  TransactionController.TransactionByUserId,
 );
 
 module.exports = routes;

@@ -1,0 +1,116 @@
+{
+  "generatedAt": "2026-11-15T15:46:21.029Z",
+  "dataset": {
+    "expenses": 3000,
+    "incomes": 300,
+    "iterations": 30
+  },
+  "dataLayer": {
+    "expense list (legacy query)": {
+      "avgMs": 4719.8,
+      "p50Ms": 1599.59,
+      "p95Ms": 19212.47,
+      "p99Ms": 27162.52,
+      "queryCount": 3,
+      "payloadBytes": 2545591
+    },
+    "expense list (optimised)": {
+      "avgMs": 930.35,
+      "p50Ms": 750.47,
+      "p95Ms": 2234.56,
+      "p99Ms": 2823.37,
+      "queryCount": 2,
+      "payloadBytes": 610691
+    },
+    "expense page 20 (optimised)": {
+      "avgMs": 49.86,
+      "p50Ms": 48.7,
+      "p95Ms": 62.64,
+      "p99Ms": 65.76,
+      "queryCount": 3,
+      "payloadBytes": 6051
+    },
+    "income list (legacy query)": {
+      "avgMs": 126.96,
+      "p50Ms": 97.87,
+      "p95Ms": 165.89,
+      "p99Ms": 559.22,
+      "queryCount": 1,
+      "payloadBytes": 70991
+    },
+    "income list (optimised)": {
+      "avgMs": 73.95,
+      "p50Ms": 75.58,
+      "p95Ms": 89.81,
+      "p99Ms": 93.44,
+      "queryCount": 1,
+      "payloadBytes": 57791
+    },
+    "totals (legacy in-memory reduce)": {
+      "avgMs": 923.3,
+      "p50Ms": 531.7,
+      "p95Ms": 2107.26,
+      "p99Ms": 2107.26,
+      "queryCount": 2,
+      "payloadBytes": 57
+    },
+    "totals (derived summary read)": {
+      "avgMs": 223.93,
+      "p50Ms": 222.9,
+      "p95Ms": 295.92,
+      "p99Ms": 295.92,
+      "queryCount": 1,
+      "payloadBytes": 57
+    }
+  },
+  "http": {
+    "GET /api/expenses/me (legacy array)": {
+      "avgMs": 356.45,
+      "p50Ms": 350.08,
+      "p95Ms": 382.1,
+      "p99Ms": 526.65,
+      "queryCount": 3,
+      "payloadBytes": 610955
+    },
+    "GET /api/expenses/me?page=1&limit=20": {
+      "avgMs": 77.62,
+      "p50Ms": 76.79,
+      "p95Ms": 88.59,
+      "p99Ms": 89.55,
+      "queryCount": 4,
+      "payloadBytes": 6282
+    },
+    "GET /api/expenses/me?limit=20&cursor=": {
+      "avgMs": 74.88,
+      "p50Ms": 73.48,
+      "p95Ms": 85.29,
+      "p99Ms": 86.47,
+      "queryCount": 3,
+      "payloadBytes": 6335
+    },
+    "GET /api/expenses/recent": {
+      "avgMs": 53.3,
+      "p50Ms": 48.47,
+      "p95Ms": 84.39,
+      "p99Ms": 99.33,
+      "queryCount": 2,
+      "payloadBytes": 859
+    },
+    "GET /api/summaries/monthly": {
+      "avgMs": 53.98,
+      "p50Ms": 53.71,
+      "p95Ms": 64.77,
+      "p99Ms": 65.04,
+      "queryCount": 2,
+      "payloadBytes": 818
+    },
+    "GET /api/notifications?limit=20": {
+      "avgMs": 55.46,
+      "p50Ms": 54.03,
+      "p95Ms": 66.75,
+      "p99Ms": 83.96,
+      "queryCount": 3,
+      "payloadBytes": 237
+    }
+  }
+}

@@ -36,4 +36,14 @@ TransactionSchema.index({
   userID:1,
   type:1
 });
+
+TransactionSchema.index(
+  { userID: 1, date: -1, _id: -1 },
+  { name: "transaction_user_date_cursor" },
+);
+
+TransactionSchema.index(
+  { userID: 1, type: 1, date: -1 },
+  { name: "transaction_user_type_date" },
+);
 module.exports = mongoose.model("transaction", TransactionSchema);

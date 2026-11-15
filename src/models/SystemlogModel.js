@@ -17,6 +17,10 @@ const SystemLogSchema = new Schema(
       type: String,
       trim: true,
     },
+    metadata: {
+      type: Schema.Types.Mixed,
+      default: {},
+    },
   },
   {
     timestamps: true,

@@ -53,4 +53,23 @@ ExpenseSchema.index({
     name: "unique_recurring_expense_occurrence",
   })
 
+// List reads: scoped by user, sorted by date with an _id tiebreaker so keyset
+// pagination stays stable when many expenses share a date.
+ExpenseSchema.index(
+  { userID: 1, date: -1, _id: -1 },
+  { name: "expense_user_date_cursor" },
+);
+
+// Category filtering and per-category aggregation (budget utilization).
+ExpenseSchema.index(
+  { userID: 1, categoryID: 1, date: -1 },
+  { name: "expense_user_category_date" },
+);
+
+// Summary reconciliation scans a user's recent writes.
+ExpenseSchema.index(
+  { updatedAt: -1, userID: 1 },
+  { name: "expense_updated_recent" },
+);
+
 module.exports = mongoose.model("expense", ExpenseSchema);

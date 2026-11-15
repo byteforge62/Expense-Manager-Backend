@@ -45,6 +45,41 @@ const UserSchema = new Schema(
     bio: {
       type: String,
     },
+
+    // --- NOTIFICATION PREFERENCES ---
+    // Additive, defaulted fields: existing users inherit the defaults with no
+    // migration. Missing values are also defaulted in the notification service.
+    notificationPreferences: {
+      inApp: {
+        type: Boolean,
+        default: true,
+      },
+      budgetAlerts: {
+        type: Boolean,
+        default: true,
+      },
+      billReminders: {
+        type: Boolean,
+        default: true,
+      },
+      recurringActivity: {
+        type: Boolean,
+        default: true,
+      },
+      anomalies: {
+        type: Boolean,
+        default: true,
+      },
+      recommendations: {
+        type: Boolean,
+        default: true,
+      },
+      minimumPriority: {
+        type: String,
+        enum: ["low", "medium", "high", "critical"],
+        default: "low",
+      },
+    },
   },
   {
     timestamps: true,

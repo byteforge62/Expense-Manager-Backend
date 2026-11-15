@@ -7,7 +7,10 @@
     "test:coverage": "cross-env NODE_ENV=test jest --coverage --runInBand",
     "start": "node server.js",
     "start:e2e": "cross-env NODE_ENV=e2e node server.js",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "bench": "node scripts/benchmark-api.js",
+    "backfill": "node scripts/backfill-derived-data.js",
+    "indexes:ensure": "node scripts/backfill-derived-data.js --indexes-only"
   },
   "author": "",
   "license": "ISC",

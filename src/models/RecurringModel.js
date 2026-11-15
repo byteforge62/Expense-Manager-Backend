@@ -54,6 +54,13 @@ const recurringSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Optional final occurrence boundary. When the next occurrence would fall
+    // after this date the schedule is deactivated instead of generating
+    // financial records forever. Undefined means "no end".
+    endDate: {
+      type: Date,
+      default: undefined,
+    },
   },
   {
     timestamps: true,

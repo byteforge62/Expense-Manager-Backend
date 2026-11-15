@@ -47,6 +47,17 @@ BillSchema.index({
   dueDate: 1,
 });
 
+BillSchema.index(
+  { userID: 1, status: 1, dueDate: 1 },
+  { name: "bill_user_status_due" },
+);
+
+// Cross-user reminder scans filter on status then a dueDate range.
+BillSchema.index(
+  { status: 1, dueDate: 1 },
+  { name: "bill_status_due" },
+);
+
 BillSchema.index({
   userID: 1,
   status: 1,

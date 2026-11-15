@@ -40,4 +40,7 @@ BudgetSchema.index({
   start_date: -1
 });
 
+// Budget monitor scans budgets whose period is still open.
+BudgetSchema.index({ end_date: 1 }, { name: "budget_end_date" });
+
 module.exports = mongoose.model("budget", BudgetSchema);

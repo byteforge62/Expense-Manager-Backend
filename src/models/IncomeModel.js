@@ -53,4 +53,14 @@ IncomeSchema.index({
   userID: 1,
   date: -1,
 })
+
+IncomeSchema.index(
+  { userID: 1, date: -1, _id: -1 },
+  { name: "income_user_date_cursor" },
+);
+
+IncomeSchema.index(
+  { updatedAt: -1, userID: 1 },
+  { name: "income_updated_recent" },
+);
 module.exports = mongoose.model("income", IncomeSchema);
