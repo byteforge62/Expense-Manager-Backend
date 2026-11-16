@@ -1,5 +1,5 @@
 const ExpenseService = require("../services/expense.service");
-const asyncHandler = require("../middleware/asyncHandler");
+const { asyncHandler } = require("../utiles/response");
 const { sendSuccess } = require("../utiles/response");
 
 const AddExpense = asyncHandler(async (req, res) => {

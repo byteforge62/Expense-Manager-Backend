@@ -1,7 +1,6 @@
 const RecurringModel = require("../models/RecurringModel");
-const NotFoundError = require("../errors/NotFoundError");
-const ForbiddenError = require("../errors/ForbiddenError");
-const audit = require("../infrastructure/audit/audit.service");
+const { NotFoundError, ForbiddenError } = require("../errors/AppError");
+const audit = require("../infrastructure/audit.service");
 const { executeListQuery, buildSort } = require("../utiles/list-query");
 
 /**

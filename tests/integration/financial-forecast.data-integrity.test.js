@@ -54,6 +54,37 @@ const normalizeForecast = (value) => {
   return value;
 };
 
+
+// Projection rates derive from Date.now(), so two forecasts taken a few
+// milliseconds apart can differ by a cent in a closing balance. Money is
+// compared within a two-cent tolerance; everything else must match exactly.
+const FORECAST_TOLERANCE = 0.02;
+
+const expectForecastEquivalent = (actual, expected) => {
+  if (typeof expected === "number" && typeof actual === "number") {
+    expect(Math.abs(actual - expected)).toBeLessThanOrEqual(FORECAST_TOLERANCE);
+    return;
+  }
+
+  if (Array.isArray(expected)) {
+    expect(Array.isArray(actual)).toBe(true);
+    expect(actual).toHaveLength(expected.length);
+    expected.forEach((item, index) =>
+      expectForecastEquivalent(actual[index], item),
+    );
+    return;
+  }
+
+  if (expected && typeof expected === "object") {
+    expect(Object.keys(actual).sort()).toEqual(Object.keys(expected).sort());
+    Object.keys(expected).forEach((key) =>
+      expectForecastEquivalent(actual[key], expected[key]),
+    );
+    return;
+  }
+
+  expect(actual).toEqual(expected);
+};
 const getFutureMonthBoundaryPair = (now = new Date()) => {
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth();
@@ -267,7 +298,7 @@ describe("Financial Forecast Data Integrity", () => {
 
       const afterOtherUserRecords = await getForecast(userAToken);
 
-      expect(afterOtherUserRecords).toEqual(baseline);
+      expectForecastEquivalent(afterOtherUserRecords, baseline);
     });
   });
 
@@ -360,7 +391,7 @@ describe("Financial Forecast Data Integrity", () => {
 
       const forecastAfterSettledBills = await getForecast(userAToken);
 
-      expect(forecastAfterSettledBills).toEqual(baseline);
+      expectForecastEquivalent(forecastAfterSettledBills, baseline);
     });
   });
 
@@ -391,7 +422,7 @@ describe("Financial Forecast Data Integrity", () => {
 
       const forecastWithGeneratedHistory = await getForecast(userAToken);
 
-      expect(forecastWithGeneratedHistory).toEqual(baseline);
+      expectForecastEquivalent(forecastWithGeneratedHistory, baseline);
     });
   });
 });

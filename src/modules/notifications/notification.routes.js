@@ -2,9 +2,66 @@ const router = require("express").Router();
 const { z } = require("zod");
 const { requireAuth } = require("../../middleware/auth.middleware");
 const validate = require("../../middleware/validate.middleware");
+const { asyncHandler, sendSuccess } = require("../../utiles/response");
+const { resolvePagination, buildPaginationMeta } = require("../../utiles/list-query");
 const { idParamSchema } = require("../../validations/common.validation");
 const { notificationsListQuerySchema } = require("../../validations/query.validation");
-const controller = require("./notification.controller");
+const notificationService = require("./notification.service");
+
+/**
+ * Notifications: router plus its thin handlers. Delivery/fan-out lives in
+ * notification.service.js and notification.handlers.js.
+ */
+
+const listNotifications = asyncHandler(async (req, res) => {
+  const { page, limit } = resolvePagination(req.query);
+  const { items, total } = await notificationService.listNotifications(req.user.id, {
+    ...req.query,
+    page,
+    limit,
+  });
+
+  return sendSuccess(
+    res,
+    200,
+    "Notifications fetched successfully",
+    items,
+    buildPaginationMeta({ page, limit, total, requestId: req.id }),
+  );
+});
+
+const unreadCount = asyncHandler(async (req, res) => {
+  const count = await notificationService.countUnread(req.user.id);
+  return sendSuccess(res, 200, "Unread count fetched successfully", { count });
+});
+
+const markRead = asyncHandler(async (req, res) => {
+  const notification = await notificationService.markRead(req.user.id, req.params.id);
+  return sendSuccess(res, 200, "Notification marked as read", notification);
+});
+
+const markAllRead = asyncHandler(async (req, res) => {
+  const result = await notificationService.markAllRead(req.user.id);
+  return sendSuccess(res, 200, "All notifications marked as read", result);
+});
+
+const deleteNotification = asyncHandler(async (req, res) => {
+  await notificationService.deleteNotification(req.user.id, req.params.id);
+  return sendSuccess(res, 200, "Notification deleted successfully");
+});
+
+const getPreferences = asyncHandler(async (req, res) => {
+  const preferences = await notificationService.getPreferences(req.user.id);
+  return sendSuccess(res, 200, "Notification preferences fetched successfully", preferences);
+});
+
+const updatePreferences = asyncHandler(async (req, res) => {
+  const preferences = await notificationService.updatePreferences(
+    req.user.id,
+    req.body,
+  );
+  return sendSuccess(res, 200, "Notification preferences updated successfully", preferences);
+});
 
 const preferencesSchema = z
   .object({
@@ -23,16 +80,16 @@ const preferencesSchema = z
 
 router.use(requireAuth);
 
-router.get("/", validate({ query: notificationsListQuerySchema }), controller.listNotifications);
-router.get("/unread-count", controller.unreadCount);
-router.patch("/read-all", controller.markAllRead);
-router.get("/preferences", controller.getPreferences);
+router.get("/", validate({ query: notificationsListQuerySchema }), listNotifications);
+router.get("/unread-count", unreadCount);
+router.patch("/read-all", markAllRead);
+router.get("/preferences", getPreferences);
 router.put(
   "/preferences",
   validate({ body: preferencesSchema }),
-  controller.updatePreferences,
+  updatePreferences,
 );
-router.patch("/:id/read", validate({ params: idParamSchema }), controller.markRead);
-router.delete("/:id", validate({ params: idParamSchema }), controller.deleteNotification);
+router.patch("/:id/read", validate({ params: idParamSchema }), markRead);
+router.delete("/:id", validate({ params: idParamSchema }), deleteNotification);
 
 module.exports = router;

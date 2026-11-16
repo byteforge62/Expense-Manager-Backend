@@ -1,7 +1,7 @@
 const dns = require("node:dns").promises;
 const https = require("node:https");
 const net = require("node:net");
-const AppError = require("../../../errors/AppError");
+const { AppError } = require("../../../errors/AppError");
 
 const ALLOWED_RETAILERS = [
   "amazon.in",

@@ -1,23 +1,19 @@
 const SystemLog = require("../models/SystemlogModel");
+const { asyncHandler } = require("../utiles/response");
+const { sendSuccess } = require("../utiles/response");
 
-const getLogs = async (req, res) => {
-  try {
-    const logs = await SystemLog.find().sort({ createdAt: -1 }).lean();
+/**
+ * Lists audit log entries.
+ *
+ * Failures are forwarded to the global error middleware, so the response uses
+ * the same `{ success, message, requestId }` envelope as every other endpoint
+ * instead of a one-off `{ success: false, error }` body.
+ */
+const getLogs = asyncHandler(async (req, res) => {
+  const logs = await SystemLog.find().sort({ createdAt: -1 }).lean();
 
-    return res.status(200).json({
-      success: true,
-      message: "Logs fetched successfully",
-      data: logs,
-    });
-  } catch (error) {
-    console.error("Failed to fetch system logs:", error);
-
-    return res.status(500).json({
-      success: false,
-      error: "Failed to fetch logs",
-    });
-  }
-};
+  return sendSuccess(res, 200, "Logs fetched successfully", logs);
+});
 
 module.exports = {
   getLogs,

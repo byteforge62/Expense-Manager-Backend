@@ -8,7 +8,7 @@ const {
 } = require("../../modules/automation/retention.service");
 const {
   runSummaryReconciliation,
-} = require("../../modules/summaries/summary-reconciliation.service");
+} = require("../../modules/summaries/summaries.service");
 
 /**
  * Background job catalogue.

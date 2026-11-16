@@ -1,9 +1,8 @@
 const IncomeModel = require("../models/IncomeModel");
-const NotFoundError = require("../errors/NotFoundError");
-const ForbiddenError = require("../errors/ForbiddenError");
+const { NotFoundError, ForbiddenError } = require("../errors/AppError");
 const events = require("../infrastructure/events/event-bus");
 const EVENTS = require("../infrastructure/events/event-names");
-const audit = require("../infrastructure/audit/audit.service");
+const audit = require("../infrastructure/audit.service");
 const {
   executeListQuery,
   buildSort,
@@ -98,7 +97,7 @@ const getIncomeById = async (incomeId, userId) => {
     throw new NotFoundError("Income not found");
   }
 
-  throw new ForbiddenError("Your are not authorized to delete this income");
+  throw new ForbiddenError("You are not authorized to access this income");
 };
 
 const buildIncomeFilter = (userId, filter = {}) => {

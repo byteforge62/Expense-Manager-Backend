@@ -4,8 +4,7 @@ const IncomeModel = require("../../../models/IncomeModel");
 const ExpenseModel = require("../../../models/ExpenseModel");
 const BillModel = require("../../../models/BillModel");
 const RecurringModel = require("../../../models/RecurringModel");
-const NotFoundError = require("../../../errors/NotFoundError");
-const ForbiddenError = require("../../../errors/ForbiddenError");
+const { NotFoundError, ForbiddenError } = require("../../../errors/AppError");
 const { calculateAffordability } = require("../domain/affordability.engine");
 
 const DAY_MS = 24 * 60 * 60 * 1000;

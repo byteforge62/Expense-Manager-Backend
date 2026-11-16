@@ -13,7 +13,7 @@ const idempotency = require("../middleware/idempotency.middleware");
 const {
   createBillSchema,
   settleBillSchema,
-} = require("../validations/bill.validation");
+} = require("../validations/financial.validation");
 
 const {
   idParamSchema,

@@ -1,5 +1,5 @@
 
-const { generateAIResponse } = require("../src/services/aiService");
+const { generateAIResponse } = require("../src/services/ai-provider.service");
 
 describe("AI service configuration", () => {
   const originalGeminiApiKey = process.env.GEMINI_API_KEY;

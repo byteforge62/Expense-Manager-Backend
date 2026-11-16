@@ -268,5 +268,40 @@ describe("Platform APIs", () => {
 
       expect(conflict.statusCode).toBe(422);
     });
+
+    test("concurrent requests with one key create a single record", async () => {
+      const key = `platform-idem-concurrent-${Date.now()}`;
+      const payload = {
+        categoryID: categoryId,
+        amount: 55,
+        description: "Concurrent",
+      };
+
+      const send = () =>
+        request(app)
+          .post("/api/expense")
+          .set("Authorization", `Bearer ${token}`)
+          .set("Idempotency-Key", key)
+          .send(payload);
+
+      const results = await Promise.all([send(), send(), send()]);
+
+      // One writer wins; the others either replay it or are told the key is
+      // still in progress. None of them may create a second record.
+      expect(results.every((res) => [201, 409].includes(res.statusCode))).toBe(true);
+
+      const createdIds = new Set(
+        results.filter((res) => res.statusCode === 201).map((res) => res.body.data._id),
+      );
+
+      expect(createdIds.size).toBe(1);
+
+      const count = await ExpenseModel.countDocuments({
+        userID: userId,
+        description: "Concurrent",
+      });
+
+      expect(count).toBe(1);
+    });
   });
 });

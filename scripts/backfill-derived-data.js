@@ -22,7 +22,7 @@ const mongoose = require("mongoose");
 const UserModel = require("../src/models/UserModel");
 const summaries = require("../src/modules/summaries/summaries.service");
 const intelligenceRefresh = require("../src/modules/automation/intelligence-refresh.service");
-const { mapWithConcurrency } = require("../src/infrastructure/queues/work-queue");
+const { mapWithConcurrency } = require("../src/infrastructure/work-queue");
 const logger = require("../src/infrastructure/logger");
 
 const argValue = (name, fallback) => {

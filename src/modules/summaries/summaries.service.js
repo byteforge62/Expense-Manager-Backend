@@ -1,3 +1,5 @@
+const { mapWithConcurrency } = require("../../infrastructure/work-queue");
+
 const mongoose = require("mongoose");
 const FinancialSummaryModel = require("../../models/FinancialSummaryModel");
 const { CategorySummaryModel } = require("../../models/FinancialSummaryModel");
@@ -330,6 +332,58 @@ const rebuildAllForUser = async (userID) => {
   return rebuildSummaries({ userID, from, to: new Date() });
 };
 
+// --- Reconciliation ---
+
+const RECONCILE_LOOKBACK_DAYS = Number(process.env.SUMMARY_RECONCILE_LOOKBACK_DAYS) || 2;
+const RECONCILE_CONCURRENCY = 3;
+const RECONCILE_MAX_USERS = Number(process.env.SUMMARY_RECONCILE_MAX_USERS) || 200;
+
+/**
+ * Reconciliation keeps derived summaries trustworthy.
+ *
+ * Incremental updates are fast but can drift (a lost consumer run, a manual
+ * database edit, an unresolved partial failure). This job rebuilds the
+ * affected windows from authoritative records for users with recent activity.
+ * A full rebuild for every user is deliberately not scheduled; it is available
+ * on demand through `rebuildAllForUser`.
+ */
+const runSummaryReconciliation = async ({ now = new Date() } = {}) => {
+  const startedAt = Date.now();
+  const from = new Date(
+    now.getTime() - RECONCILE_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  );
+
+  const [expenseUsers, incomeUsers] = await Promise.all([
+    ExpenseModel.distinct("userID", { updatedAt: { $gte: from } }),
+    IncomeModel.distinct("userID", { updatedAt: { $gte: from } }),
+  ]);
+
+  const userIds = [...new Set([...expenseUsers, ...incomeUsers].map(String))].slice(
+    0,
+    RECONCILE_MAX_USERS,
+  );
+
+  if (userIds.length === 0) {
+    return { usersReconciled: 0, failures: 0, durationMs: Date.now() - startedAt };
+  }
+
+  const outcome = await mapWithConcurrency(
+    userIds,
+    RECONCILE_CONCURRENCY,
+    (userID) => rebuildSummaries({ userID, from, to: now }),
+  );
+
+  for (const failure of outcome.failures) {
+    logger.error("summaries.reconcile_failed", { error: failure.error });
+  }
+
+  return {
+    usersReconciled: outcome.succeeded,
+    failures: outcome.failures.length,
+    durationMs: Date.now() - startedAt,
+  };
+};
+
 module.exports = {
   PERIOD_TYPES,
   startOfUtcDay,
@@ -340,4 +394,5 @@ module.exports = {
   getCategoryBreakdown,
   rebuildSummaries,
   rebuildAllForUser,
+  runSummaryReconciliation,
 };

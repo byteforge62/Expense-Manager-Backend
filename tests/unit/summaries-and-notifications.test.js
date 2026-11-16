@@ -31,7 +31,7 @@ const { CategorySummaryModel } = require("../../src/models/FinancialSummaryModel
 const UserModel = require("../../src/models/UserModel");
 const NotificationModel = require("../../src/models/NotificationModel");
 const eventBus = require("../../src/infrastructure/events/event-bus");
-const cache = require("../../src/infrastructure/cache/memory-cache");
+const cache = require("../../src/infrastructure/memory-cache");
 
 const summaries = require("../../src/modules/summaries/summaries.service");
 const notificationService = require("../../src/modules/notifications/notification.service");

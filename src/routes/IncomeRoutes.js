@@ -3,7 +3,7 @@ const IncomeController = require("../Controllers/IncomeController");
 const { requireAuth, requireRole } = require("../middleware/auth.middleware");
 const validate = require("../middleware/validate.middleware");
 const idempotency = require("../middleware/idempotency.middleware");
-const { createIncomeSchema } = require("../validations/income.validation");
+const { createIncomeSchema } = require("../validations/financial.validation");
 const { idParamSchema } = require("../validations/common.validation");
 const { incomeListQuerySchema } = require("../validations/query.validation");
 

@@ -3,7 +3,7 @@ const BudgetUtilizationModel = require("../../models/BudgetUtilizationModel");
 const ExpenseModel = require("../../models/ExpenseModel");
 const events = require("../../infrastructure/events/event-bus");
 const EVENTS = require("../../infrastructure/events/event-names");
-const { mapWithConcurrency } = require("../../infrastructure/queues/work-queue");
+const { mapWithConcurrency } = require("../../infrastructure/work-queue");
 const { startOfUtcDay, startOfUtcMonth } = require("../summaries/summaries.service");
 const logger = require("../../infrastructure/logger");
 

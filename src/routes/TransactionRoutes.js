@@ -3,7 +3,7 @@ const TransactionController = require("../Controllers/TransactionController");
 const { requireAuth, requireRole } = require("../middleware/auth.middleware");
 const validate = require("../middleware/validate.middleware");
 const idempotency = require("../middleware/idempotency.middleware");
-const { createTransactionSchema } = require("../validations/transaction.validation");
+const { createTransactionSchema } = require("../validations/financial.validation");
 const { idParamSchema } = require("../validations/common.validation");
 const { transactionsListQuerySchema } = require("../validations/query.validation");
 

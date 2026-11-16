@@ -1,6 +1,6 @@
 const OutboxEventModel = require("../../models/OutboxEventModel");
 const { dispatch, backoffMs, EVENTS_MAX_ATTEMPTS } = require("./event-bus");
-const { mapWithConcurrency } = require("../queues/work-queue");
+const { mapWithConcurrency } = require("../work-queue");
 const logger = require("../logger");
 
 /**

@@ -1,7 +1,7 @@
 const express = require("express");
 const { requireAuth } = require("../middleware/auth.middleware");
 const validate = require("../middleware/validate.middleware");
-const { askAISchema } = require("../validations/ai.validation");
+const { z } = require("zod");
 
 const {
   askAI,
@@ -13,6 +13,17 @@ const {
   getFinancialHealthScore,
   getAllInsights,
 } = require("../Controllers/aiController");
+
+// Chat payload validation (single consumer: this router).
+const askAISchema = z
+  .object({
+    message: z
+      .string({ error: "Message must be a string" })
+      .trim()
+      .min(1, "Message cannot be empty")
+      .max(3000, "Message cannot exceed 3000 characters"),
+  })
+  .strict();
 
 const router = express.Router();
 

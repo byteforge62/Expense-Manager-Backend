@@ -1,5 +1,5 @@
 const CategoryService = require("../services/category.service")
-const asyncHandler = require("../middleware/asyncHandler");
+const { asyncHandler } = require("../utiles/response");
 const {sendSuccess} = require("../utiles/response");
 const AddCategory = asyncHandler(async (req, res) => {
   const category = await CategoryService.addCategory(req.body);

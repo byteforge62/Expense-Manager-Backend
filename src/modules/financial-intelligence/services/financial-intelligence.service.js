@@ -1,7 +1,7 @@
 const {
   buildComparisonMetrics,
   buildFinancialMetrics,
-} = require("../financial-metrics.engine");
+} = require("../engines/financial-metrics.engine");
 const { buildBehavioralAnalysis } = require("../engines/behavioral-analysis.engine");
 const { detectAnomalies } = require("../engines/anomaly-detection.engine");
 const { assessFinancialHealth } = require("../engines/financial-health.engine");

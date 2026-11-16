@@ -4,7 +4,7 @@ const Scheduler = require("./jobs/scheduler");
 const { buildJobDefinitions, JOBS_ENABLED } = require("./jobs/job-definitions");
 const { getInstanceId } = require("./jobs/job-runner");
 const realtime = require("../modules/realtime/realtime.service");
-const cache = require("./cache/memory-cache");
+const cache = require("./memory-cache");
 const logger = require("./logger");
 
 /**

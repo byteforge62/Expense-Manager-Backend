@@ -1,5 +1,5 @@
 const IncomeService = require("../services/income.service");
-const asyncHandler = require("../middleware/asyncHandler");
+const { asyncHandler } = require("../utiles/response");
 const { sendSuccess } = require("../utiles/response");
 
 const AddIncome = asyncHandler(async (req, res) => {

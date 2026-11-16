@@ -1,5 +1,5 @@
 const { sendSuccess } = require("../utiles/response");
-const asyncHandler = require("../middleware/asyncHandler");
+const { asyncHandler } = require("../utiles/response");
 const UserService = require("../services/user.service");
 
 const getCookieOptions = () => {

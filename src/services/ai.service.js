@@ -2,9 +2,10 @@ const ExpenseModel = require("../models/ExpenseModel");
 const IncomeModel = require("../models/IncomeModel");
 const AllInsightModel = require("../models/AllInsightModel");
 
-const { generateAIResponse } = require("./aiService");
+const { generateAIResponse } = require("./ai-provider.service");
+const logger = require("../infrastructure/logger");
 
-const ValidationError = require("../errors/ValidationError");
+const { ValidationError } = require("../errors/AppError");
 const getFinancialData = async (userId) => {
     const incomes = await IncomeModel.find({
         userID: userId,
@@ -28,7 +29,8 @@ const saveInsight = async (userId, type, content) => {
       content,
     });
   } catch (error) {
-    console.error("Insight Save Error:", error.message);
+    // Persisting an insight is best-effort: the answer is still returned.
+    logger.warn("ai.insight_save_failed", { error, type });
   }
 };
 

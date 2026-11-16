@@ -1,4 +1,4 @@
-const asyncHandler = require("../middleware/asyncHandler");
+const { asyncHandler } = require("../utiles/response");
 const { sendSuccess } = require("../utiles/response");
 const AIService = require("../services/ai.service");
 

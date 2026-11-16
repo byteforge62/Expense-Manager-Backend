@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const ExpenseModel = require("../models/ExpenseModel");
 const IncomeModel = require("../models/IncomeModel");
-const NotFoundError = require("../errors/NotFoundError");
+const { NotFoundError } = require("../errors/AppError");
 
 /**
  * PDF report.
@@ -10,6 +10,11 @@ const NotFoundError = require("../errors/NotFoundError");
  * memory and summed them in JavaScript. Totals now come from a grouped
  * aggregation (constant memory regardless of history size) and the itemised
  * section is bounded, with an explicit note when it is cut off.
+ *
+ * Data resolution (`collectReportData`) is separated from rendering
+ * (`writeReport`) so the controller can obtain every record *before* it
+ * commits PDF headers: a user without data must get a JSON 404, not a
+ * truncated attachment.
  */
 const DETAIL_LIMIT = Number(process.env.REPORT_DETAIL_LIMIT) || 1000;
 
@@ -22,7 +27,14 @@ const getTotals = async (Model, userId) => {
   return { total: result?.total || 0, count: result?.count || 0 };
 };
 
-const generateReport = async (doc, userId) => {
+/**
+ * Loads and validates everything the report needs.
+ *
+ * Throws NotFoundError when the user has no income and no expenses, which is
+ * the only failure mode a caller has to handle — and it happens before any
+ * response has been written.
+ */
+const collectReportData = async (userId) => {
   const [incomeTotals, expenseTotals] = await Promise.all([
     getTotals(IncomeModel, userId),
     getTotals(ExpenseModel, userId),
@@ -32,14 +44,23 @@ const generateReport = async (doc, userId) => {
     throw new NotFoundError("No financial data found");
   }
 
-  const totalIncome = incomeTotals.total;
-  const totalExpense = expenseTotals.total;
-
   const expenses = await ExpenseModel.find({ userID: userId })
     .select("description amount date")
     .sort({ date: -1, _id: -1 })
     .limit(DETAIL_LIMIT)
     .lean();
+
+  return {
+    totalIncome: incomeTotals.total,
+    totalExpense: expenseTotals.total,
+    expenseCount: expenseTotals.count,
+    expenses,
+  };
+};
+
+/** Renders already-collected data into the PDF document. */
+const writeReport = (doc, data) => {
+  const { totalIncome, totalExpense, expenseCount, expenses } = data;
 
   doc.fontSize(20).text("Financial Report", {
     align: "center",
@@ -63,16 +84,35 @@ const generateReport = async (doc, userId) => {
       .text(`${expense.description || "Expense"} - ₹${expense.amount}`);
   }
 
-  if (expenseTotals.count > expenses.length) {
+  if (expenseCount > expenses.length) {
     doc.moveDown(0.5);
     doc
       .fontSize(10)
       .text(
-        `Showing the ${expenses.length} most recent of ${expenseTotals.count} expenses. Totals above cover all records.`,
+        `Showing the ${expenses.length} most recent of ${expenseCount} expenses. Totals above cover all records.`,
       );
   }
+
+  return doc;
+};
+
+/**
+ * Collect-then-render in one call.
+ *
+ * Kept for callers that own the document lifecycle; the controller calls the
+ * two halves directly so headers are only written once the data is valid.
+ */
+const generateReport = async (doc, userId) => {
+  const data = await collectReportData(userId);
+
+  writeReport(doc, data);
+
+  return data;
 };
 
 module.exports = {
+  DETAIL_LIMIT,
+  collectReportData,
+  writeReport,
   generateReport,
 };

@@ -5,11 +5,8 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { PutObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const {getS3Client} = require("../config/s3");
-const NotFoundError = require("../errors/NotFoundError");
-const ConflictError = require("../errors/ConflictError");
-const UnauthorizedError = require("../errors/UnauthorizedError");
-const ValidationError = require("../errors/ValidationError");
-const AppError = require("../errors/AppError");
+const { NotFoundError, ConflictError, UnauthorizedError, ValidationError, AppError } = require("../errors/AppError");
+const logger = require("../infrastructure/logger");
 
 const extractS3Key = (url) => {
   try {
@@ -245,10 +242,13 @@ const uploadProfilePicture = async (id, file) => {
           }),
         );
       } catch (deleteErr) {
-        console.error(
-          "Failed to delete old profile pic from S3:",
-          deleteErr.message,
-        );
+        // The replacement upload still proceeds; the stale object is simply
+        // left behind, and the failure is logged with correlation instead of
+        // being printed to stdout.
+        logger.warn("profile.old_image_delete_failed", {
+          userID: String(id),
+          error: deleteErr,
+        });
       }
     }
   }

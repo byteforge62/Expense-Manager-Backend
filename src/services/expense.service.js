@@ -1,9 +1,8 @@
 const ExpenseModel = require("../models/ExpenseModel");
-const NotFoundError = require("../errors/NotFoundError");
-const ForbiddenError = require("../errors/ForbiddenError");
+const { NotFoundError, ForbiddenError } = require("../errors/AppError");
 const events = require("../infrastructure/events/event-bus");
 const EVENTS = require("../infrastructure/events/event-names");
-const audit = require("../infrastructure/audit/audit.service");
+const audit = require("../infrastructure/audit.service");
 const {
   executeListQuery,
   buildSort,

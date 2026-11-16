@@ -5,11 +5,8 @@ const {
   requireAuth,
   requireRole,
 } = require("../middleware/auth.middleware");
-const upload = require("../middleware/upload");
+const { upload, validateImageSignature } = require("../middleware/upload.middleware");
 const validate = require("../middleware/validate.middleware");
-const validateImageSignature = require(
-  "../middleware/validate-image-signature.middleware"
-);
 const {
   signupSchema,
   loginSchema,

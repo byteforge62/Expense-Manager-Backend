@@ -1,6 +1,6 @@
 const {
   buildFinancialMetrics,
-} = require("../../src/modules/financial-intelligence/financial-metrics.engine");
+} = require("../../src/modules/financial-intelligence/engines/financial-metrics.engine");
 const {
   buildBehavioralAnalysis,
 } = require("../../src/modules/financial-intelligence/engines/behavioral-analysis.engine");
@@ -16,7 +16,7 @@ const {
 } = require("../../src/modules/financial-intelligence/utils/statistics");
 const {
   overviewQuerySchema,
-} = require("../../src/modules/financial-intelligence/validations/financial-intelligence.validation");
+} = require("../../src/modules/financial-intelligence/financial-intelligence.validation");
 
 const startDate = new Date("2026-01-01T00:00:00.000Z");
 const endDate = new Date("2026-01-10T23:59:59.999Z");

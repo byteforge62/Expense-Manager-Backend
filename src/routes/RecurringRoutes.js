@@ -12,7 +12,7 @@ const { recurringListQuerySchema } = require("../validations/query.validation");
 const {
   createRecurringSchema,
   updateRecurringSchema,
-} = require("../validations/recurring.validation");
+} = require("../validations/financial.validation");
 
 const upcomingQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),

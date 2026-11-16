@@ -1,6 +1,6 @@
 const {
   buildFinancialMetrics,
-} = require("../../src/modules/financial-intelligence/financial-metrics.engine");
+} = require("../../src/modules/financial-intelligence/engines/financial-metrics.engine");
 const {
   buildBehavioralAnalysis,
 } = require("../../src/modules/financial-intelligence/engines/behavioral-analysis.engine");

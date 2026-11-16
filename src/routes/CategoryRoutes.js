@@ -5,7 +5,7 @@ const { requireAuth, requireRole } = require("../middleware/auth.middleware");
 const validate = require("../middleware/validate.middleware");
 
 const { idParamSchema } = require("../validations/common.validation");
-const { createCategorySchema } = require("../validations/category.validation");
+const { createCategorySchema } = require("../validations/financial.validation");
 
 routes.post(
   "/categories",

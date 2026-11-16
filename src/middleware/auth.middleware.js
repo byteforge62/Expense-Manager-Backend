@@ -18,6 +18,15 @@ const requireAuth = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // SSE stream tokens are scoped to /api/realtime/stream and must never
+    // be accepted as ordinary API credentials.
+    if (decoded?.typ === "realtime_stream" || decoded?.aud === "realtime") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired token",
+      });
+    }
+
     const user = await UserModel.findById(decoded.id).select(
       "_id role is_active",
     );

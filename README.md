@@ -31,15 +31,18 @@ Expense-Manager-backend/
 ├── app.js
 ├── server.js
 ├── src/
-│   ├── config/
-│   │   └── validateEnv.js
-│   ├── middleware/
-│   ├── routes/
-│   ├── Controllers/
-│   ├── models/
-│   ├── services/
-│   ├── utiles/
-│   └── validations/
+│   ├── config/            env validation + S3 client
+│   ├── Controllers/       request handlers for the core financial domains
+│   ├── docs/              OpenAPI spec (paths/ + schemas/)
+│   ├── errors/            AppError hierarchy
+│   ├── infrastructure/    logger, cache, work queue, event bus, jobs
+│   ├── middleware/        auth, csrf, validation, idempotency, errors
+│   ├── models/            one Mongoose schema per collection
+│   ├── modules/           feature modules (routes + service + domain/)
+│   ├── routes/            routers for the core financial domains
+│   ├── services/          domain logic for the core financial domains
+│   ├── utiles/            response envelope + list/pagination helpers
+│   └── validations/       shared Zod schemas
 ├── tests/
 ├── .env.example
 ├── .gitignore

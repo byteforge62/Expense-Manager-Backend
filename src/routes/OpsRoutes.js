@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const JobRunModel = require("../models/JobRunModel");
 const OutboxEventModel = require("../models/OutboxEventModel");
 const { requireAuth, requireRole } = require("../middleware/auth.middleware");
-const asyncHandler = require("../middleware/asyncHandler");
+const { asyncHandler } = require("../utiles/response");
 const { sendSuccess } = require("../utiles/response");
 const { getRuntimeStatus } = require("../infrastructure/bootstrap");
 

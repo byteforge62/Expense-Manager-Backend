@@ -1,4 +1,4 @@
-const asyncHandler = require("../middleware/asyncHandler");
+const { asyncHandler } = require("../utiles/response");
 const BillService = require("../services/bill.service");
 const { sendSuccess } = require("../utiles/response");
 

@@ -3,7 +3,7 @@ const ExpenseController = require("../Controllers/ExepenseController");
 const { requireAuth, requireRole } = require("../middleware/auth.middleware");
 const validate = require("../middleware/validate.middleware");
 const idempotency = require("../middleware/idempotency.middleware");
-const { createExpenseSchema, updateExpenseSchema } = require("../validations/expense.validation");
+const { createExpenseSchema, updateExpenseSchema } = require("../validations/financial.validation");
 const { idParamSchema } = require("../validations/common.validation");
 const { expensesListQuerySchema } = require("../validations/query.validation");
 

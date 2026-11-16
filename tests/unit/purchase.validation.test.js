@@ -1,7 +1,7 @@
 const {
   createPurchaseProductSchema,
   analyzePurchaseSchema,
-} = require("../../src/modules/purchase-intelligence/validations/purchase.validation");
+} = require("../../src/modules/purchase-intelligence/purchase.validation");
 
 describe("Purchase Intelligence request validation", () => {
   test("accepts manual product entry without a retailer URL", () => {

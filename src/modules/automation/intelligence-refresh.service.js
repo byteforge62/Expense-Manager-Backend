@@ -8,7 +8,7 @@ const {
 const notificationService = require("../notifications/notification.service");
 const events = require("../../infrastructure/events/event-bus");
 const EVENTS = require("../../infrastructure/events/event-names");
-const { mapWithConcurrency } = require("../../infrastructure/queues/work-queue");
+const { mapWithConcurrency } = require("../../infrastructure/work-queue");
 const logger = require("../../infrastructure/logger");
 
 /**

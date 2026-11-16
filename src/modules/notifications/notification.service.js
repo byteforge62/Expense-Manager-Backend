@@ -1,7 +1,7 @@
 const NotificationModel = require("../../models/NotificationModel");
 const UserModel = require("../../models/UserModel");
-const NotFoundError = require("../../errors/NotFoundError");
-const cache = require("../../infrastructure/cache/memory-cache");
+const { NotFoundError } = require("../../errors/AppError");
+const cache = require("../../infrastructure/memory-cache");
 const logger = require("../../infrastructure/logger");
 const events = require("../../infrastructure/events/event-bus");
 const EVENTS = require("../../infrastructure/events/event-names");

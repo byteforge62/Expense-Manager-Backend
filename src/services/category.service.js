@@ -1,7 +1,6 @@
 const CategoryModel = require("../models/CategoryModel");
-const ConflictError = require("../errors/ConflictError");
-const NotFoundError = require("../errors/NotFoundError");
-const cache = require("../infrastructure/cache/memory-cache");
+const { ConflictError, NotFoundError } = require("../errors/AppError");
+const cache = require("../infrastructure/memory-cache");
 
 /**
  * Category metadata is global, read on nearly every page and written rarely,

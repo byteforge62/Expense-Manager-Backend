@@ -6,7 +6,7 @@ const {
   buildCursorFilter,
   buildNextCursor,
   clampLimit,
-} = require("../../src/utiles/pagination");
+} = require("../../src/utiles/list-query");
 
 const { executeListQuery, buildSort, escapeRegex } = require("../../src/utiles/list-query");
 
