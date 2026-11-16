@@ -66,6 +66,20 @@ const loginLimiter = rateLimit({
   message: standardLimitMessage("Too many login attempts. Please try again later."),
 });
 
+/**
+ * Password recovery issues credentials, so it gets a tighter budget than the
+ * general auth limiter. Overridable per deployment and in tests.
+ */
+const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: Number(process.env.PASSWORD_RESET_RATE_LIMIT) || 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: standardLimitMessage(
+    "Too many password reset attempts. Please try again later.",
+  ),
+});
+
 const aiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -101,6 +115,10 @@ app.use(mongoSanitize());
 app.use("/api/ai", aiLimiter, aiRoutes);
 app.use("/api/user", authLimiter);
 app.use("/api/user/login", loginLimiter);
+app.use(
+  ["/api/user/forgotpassword", "/api/user/resetpassword"],
+  passwordResetLimiter,
+);
 app.use("/api", apiLimiter);
 
 /**

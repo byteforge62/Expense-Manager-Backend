@@ -863,4 +863,62 @@
  *       500:
  *         description: Internal Server Error
  */
+/**
+ * @openapi
+ * paths:
+ *   /api/user/forgotpassword:
+ *     post:
+ *       tags:
+ *         - Authentication
+ *       summary: Request a password reset link
+ *       description: >
+ *         Always answers with the same generic message, whether or not the
+ *         email belongs to an account. Rate limited per IP.
+ *       requestBody:
+ *         required: true
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [email]
+ *               properties:
+ *                 email:
+ *                   type: string
+ *                   format: email
+ *       responses:
+ *         '200':
+ *           description: Request accepted (same response for known and unknown addresses).
+ *         '400':
+ *           description: Validation failed.
+ *         '429':
+ *           description: Too many password reset attempts.
+ *   /api/user/resetpassword:
+ *     post:
+ *       tags:
+ *         - Authentication
+ *       summary: Complete a password reset
+ *       description: >
+ *         Redeems a single-use reset token, replaces the password and revokes
+ *         every existing refresh session for the account.
+ *       requestBody:
+ *         required: true
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [token, password]
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                 password:
+ *                   type: string
+ *                   format: password
+ *       responses:
+ *         '200':
+ *           description: Password updated.
+ *         '400':
+ *           description: Invalid, expired or already-used token, or a policy failure.
+ *         '429':
+ *           description: Too many password reset attempts.
+ */
 module.exports = {};

@@ -11,6 +11,8 @@ const {
   signupSchema,
   loginSchema,
   updateUserSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } = require("../validations/user.validation");
 const {idParamSchema} = require("../validations/common.validation");
 
@@ -40,6 +42,20 @@ routes.post(
 );
 routes.post("/user/refresh-token", UserController.RefreshToken);
 routes.post("/user/logout", UserController.LogoutUser);
+
+// Password recovery. Both endpoints are unauthenticated by design: the user
+// has no session yet, and the reset token itself is the credential.
+routes.post(
+  "/user/forgotpassword",
+  validate({ body: forgotPasswordSchema }),
+  UserController.ForgotPassword,
+);
+
+routes.post(
+  "/user/resetpassword",
+  validate({ body: resetPasswordSchema }),
+  UserController.ResetPassword,
+);
 
 routes.get(
   "/users",

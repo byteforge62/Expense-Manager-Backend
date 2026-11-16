@@ -11,6 +11,38 @@ const BillModel = require("../../src/models/BillModel");
 
 jest.setTimeout(40000);
 
+// --- DETERMINISTIC CLOCK ---
+// The forecast horizon starts at the request instant, so the first bucket's
+// day count is fractional and moves with the wall clock. Freezing the clock
+// (Date only; every timer API stays real so supertest and the MongoDB driver
+// behave normally) makes two requests inside one test compute identical
+// buckets, which is what lets the assertions below compare payloads exactly.
+const FIXED_NOW = new Date("2026-06-15T12:00:00.000Z");
+
+jest.useFakeTimers({
+  now: FIXED_NOW,
+  doNotFake: [
+    "nextTick",
+    "setImmediate",
+    "clearImmediate",
+    "setInterval",
+    "clearInterval",
+    "setTimeout",
+    "clearTimeout",
+    "queueMicrotask",
+    "requestAnimationFrame",
+    "cancelAnimationFrame",
+    "requestIdleCallback",
+    "cancelIdleCallback",
+    "hrtime",
+    "performance",
+  ],
+});
+
+afterAll(() => {
+  jest.useRealTimers();
+});
+
 const FORECAST_ENDPOINT = "/api/financial-forecast";
 
 const createTestEmail = (label) =>
@@ -54,37 +86,6 @@ const normalizeForecast = (value) => {
   return value;
 };
 
-
-// Projection rates derive from Date.now(), so two forecasts taken a few
-// milliseconds apart can differ by a cent in a closing balance. Money is
-// compared within a two-cent tolerance; everything else must match exactly.
-const FORECAST_TOLERANCE = 0.02;
-
-const expectForecastEquivalent = (actual, expected) => {
-  if (typeof expected === "number" && typeof actual === "number") {
-    expect(Math.abs(actual - expected)).toBeLessThanOrEqual(FORECAST_TOLERANCE);
-    return;
-  }
-
-  if (Array.isArray(expected)) {
-    expect(Array.isArray(actual)).toBe(true);
-    expect(actual).toHaveLength(expected.length);
-    expected.forEach((item, index) =>
-      expectForecastEquivalent(actual[index], item),
-    );
-    return;
-  }
-
-  if (expected && typeof expected === "object") {
-    expect(Object.keys(actual).sort()).toEqual(Object.keys(expected).sort());
-    Object.keys(expected).forEach((key) =>
-      expectForecastEquivalent(actual[key], expected[key]),
-    );
-    return;
-  }
-
-  expect(actual).toEqual(expected);
-};
 const getFutureMonthBoundaryPair = (now = new Date()) => {
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth();
@@ -298,7 +299,7 @@ describe("Financial Forecast Data Integrity", () => {
 
       const afterOtherUserRecords = await getForecast(userAToken);
 
-      expectForecastEquivalent(afterOtherUserRecords, baseline);
+      expect(afterOtherUserRecords).toEqual(baseline);
     });
   });
 
@@ -391,7 +392,7 @@ describe("Financial Forecast Data Integrity", () => {
 
       const forecastAfterSettledBills = await getForecast(userAToken);
 
-      expectForecastEquivalent(forecastAfterSettledBills, baseline);
+      expect(forecastAfterSettledBills).toEqual(baseline);
     });
   });
 
@@ -422,7 +423,7 @@ describe("Financial Forecast Data Integrity", () => {
 
       const forecastWithGeneratedHistory = await getForecast(userAToken);
 
-      expectForecastEquivalent(forecastWithGeneratedHistory, baseline);
+      expect(forecastWithGeneratedHistory).toEqual(baseline);
     });
   });
 });

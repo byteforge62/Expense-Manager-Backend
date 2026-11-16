@@ -108,6 +108,28 @@ const UploadProfilePic = asyncHandler(async (req, res) => {
     )
 });
 
+/**
+ * Always answered with the same message and status, whether or not the email
+ * belongs to an account. Nothing about the outcome is echoed back.
+ */
+const FORGOT_PASSWORD_MESSAGE =
+  "If an account exists for that email, a password reset link has been sent";
+
+const ForgotPassword = asyncHandler(async (req, res) => {
+  await UserService.requestPasswordReset(req.body.email);
+
+  return sendSuccess(res, 200, FORGOT_PASSWORD_MESSAGE);
+});
+
+const ResetPassword = asyncHandler(async (req, res) => {
+  await UserService.resetPassword({
+    token: req.body.token,
+    password: req.body.password,
+  });
+
+  return sendSuccess(res, 200, "Password reset successfully");
+});
+
 module.exports = {
   GetAllusers,
   GetuserbyId,
@@ -118,4 +140,6 @@ module.exports = {
   LogoutUser,
   UpdateUser,
   UploadProfilePic,
+  ForgotPassword,
+  ResetPassword,
 };
