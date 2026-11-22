@@ -38,6 +38,9 @@ bower_components
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
 
+# Locally stored product images (used when object storage is not configured)
+uploads/
+
 # Dependency directories
 node_modules/
 jspm_packages/

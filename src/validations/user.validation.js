@@ -64,6 +64,17 @@ const updateUserSchema = z
   );
 
 /**
+ * In-session password change. Requires the current password, and the new one
+ * must satisfy the same policy as signup and reset.
+ */
+const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: passwordSchema,
+  })
+  .strict();
+
+/**
  * Password-reset request. Strict so extra fields cannot smuggle state, and the
  * email is normalized exactly like login/signup.
  */
@@ -93,6 +104,7 @@ module.exports = {
   signupSchema,
   loginSchema,
   updateUserSchema,
+  changePasswordSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
   passwordSchema,

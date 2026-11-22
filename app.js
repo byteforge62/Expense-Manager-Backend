@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
@@ -24,6 +25,7 @@ const aiRoutes = require("./src/routes/aiRoutes");
 const reportRoutes = require("./src/routes/ReportRoutes");
 const opsRoutes = require("./src/routes/OpsRoutes");
 const purchaseIntelligenceRoutes = require("./src/modules/purchase-intelligence/purchase-intelligence.routes");
+const purchaseRoutes = require("./src/modules/purchases/purchase.routes");
 const financialForecastRoutes = require("./src/modules/financial-forecasting/financial-forecast.routes");
 const financialIntelligenceRoutes = require("./src/modules/financial-intelligence/financial-intelligence.routes");
 const notificationRoutes = require("./src/modules/notifications/notification.routes");
@@ -112,6 +114,21 @@ app.use(cookieParser());
 app.use("/api", createCsrfProtection(allowedOrigins));
 app.use(mongoSanitize());
 
+/**
+ * Product images stored on disk (when object storage is not configured) are
+ * served read-only. The API is a different origin from the SPA, so the
+ * resource policy has to allow cross-origin reads for <img> to load it.
+ */
+app.use(
+  "/uploads",
+  helmet.crossOriginResourcePolicy({ policy: "cross-origin" }),
+  express.static(path.join(__dirname, "uploads"), {
+    index: false,
+    maxAge: "7d",
+    dotfiles: "deny",
+  }),
+);
+
 app.use("/api/ai", aiLimiter, aiRoutes);
 app.use("/api/user", authLimiter);
 app.use("/api/user/login", loginLimiter);
@@ -158,6 +175,7 @@ app.use("/api", budgetRoutes);
 app.use("/api", systemlogRoutes);
 app.use("/api", billRoutes);
 app.use("/api", reportRoutes);
+app.use("/api/purchases", purchaseRoutes);
 app.use("/api/purchase-intelligence", purchaseIntelligenceRoutes);
 app.use("/api/financial-forecast", financialForecastRoutes);
 app.use("/api/financial-intelligence", financialIntelligenceRoutes);

@@ -97,6 +97,16 @@ const UpdateUser = asyncHandler(async (req, res) => {
     return sendSuccess(res, 200, "User updated successfully", updatedUser);
 });
 
+const ChangePassword = asyncHandler(async (req, res) => {
+  const result = await UserService.changePassword(req.params.id, {
+    currentPassword: req.body.currentPassword,
+    newPassword: req.body.newPassword,
+    callerRefreshToken: req.cookies?.refreshToken,
+  });
+
+  return sendSuccess(res, 200, "Password changed successfully", result);
+});
+
 //Util function to upload profile picture to s3
 const UploadProfilePic = asyncHandler(async (req, res) => {
   const updatedUser = await UserService.uploadProfilePicture(req.params.id,req.file);  
@@ -139,6 +149,7 @@ module.exports = {
   RefreshToken,
   LogoutUser,
   UpdateUser,
+  ChangePassword,
   UploadProfilePic,
   ForgotPassword,
   ResetPassword,

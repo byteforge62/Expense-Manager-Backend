@@ -11,6 +11,7 @@ const {
   signupSchema,
   loginSchema,
   updateUserSchema,
+  changePasswordSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
 } = require("../validations/user.validation");
@@ -89,6 +90,17 @@ routes.delete(
   requireRole("Admin"),
   validate({params: idParamSchema}),
   UserController.DeleteUser
+);
+
+routes.put(
+  "/user/:id/password",
+  requireAuth,
+  requireSelfOrAdmin,
+  validate({
+    params: idParamSchema,
+    body: changePasswordSchema,
+  }),
+  UserController.ChangePassword,
 );
 
 routes.post(

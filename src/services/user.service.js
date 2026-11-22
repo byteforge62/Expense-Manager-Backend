@@ -214,6 +214,54 @@ const updateUser = async (id, data) => {
   return updatedUser;
 };
 
+/**
+ * Changes the password of an authenticated account.
+ *
+ * The current password is required (a stolen access token alone cannot lock
+ * the owner out), the replacement must pass the shared policy via validation,
+ * and every refresh token except the caller's own session is revoked so other
+ * devices cannot keep extending their access.
+ */
+const changePassword = async (
+  id,
+  { currentPassword, newPassword, callerRefreshToken },
+) => {
+  const user = await UserModel.findById(id);
+
+  if (!user) {
+    throw new NotFoundError("User not found");
+  }
+
+  const isMatch = await bcrypt.compare(currentPassword, user.password);
+
+  if (!isMatch) {
+    throw new ValidationError("Current password is incorrect");
+  }
+
+  const isReused = await bcrypt.compare(newPassword, user.password);
+
+  if (isReused) {
+    throw new ValidationError(
+      "New password must be different from the current password",
+    );
+  }
+
+  user.password = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
+  await user.save();
+
+  const keepHash = callerRefreshToken
+    ? crypto.createHash("sha256").update(callerRefreshToken).digest("hex")
+    : null;
+
+  const revoked = await RefreshTokenModel.deleteMany(
+    keepHash
+      ? { user: id, tokenHash: { $ne: keepHash } }
+      : { user: id },
+  );
+
+  return { otherSessionsRevoked: revoked.deletedCount || 0 };
+};
+
 const uploadProfilePicture = async (id, file) => {
   if (!file) {
     throw new ValidationError("No file uploaded");
@@ -493,6 +541,7 @@ module.exports = {
   loginUser,
   refreshToken,
   updateUser,
+  changePassword,
   uploadProfilePicture,
   revokeRefreshToken,
   requestPasswordReset,
