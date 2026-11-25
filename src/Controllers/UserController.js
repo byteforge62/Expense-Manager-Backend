@@ -127,9 +127,16 @@ const FORGOT_PASSWORD_MESSAGE =
   "If an account exists for that email, a password reset link has been sent";
 
 const ForgotPassword = asyncHandler(async (req, res) => {
-  await UserService.requestPasswordReset(req.body.email);
+  const result = await UserService.requestPasswordReset(req.body.email);
 
-  return sendSuccess(res, 200, FORGOT_PASSWORD_MESSAGE);
+  // `devResetUrl` is only produced by the service in development when the
+  // provider rejects the message. Production responses stay generic.
+  return sendSuccess(
+    res,
+    200,
+    FORGOT_PASSWORD_MESSAGE,
+    result?.devResetUrl ? { devResetUrl: result.devResetUrl } : null,
+  );
 });
 
 const ResetPassword = asyncHandler(async (req, res) => {

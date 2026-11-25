@@ -25,6 +25,13 @@ const RESET_RESPONSE_FLOOR_MS =
 const BCRYPT_SALT_ROUNDS = 10;
 const EMAIL_DISABLED_ENVS = new Set(["test", "e2e"]);
 
+// Local development must still be able to recover an account when SMTP is
+// unconfigured or the provider rejects the credentials. The reset link is
+// returned only outside production, and can be switched off explicitly.
+const allowDevResetLink = () =>
+  process.env.NODE_ENV === "development" &&
+  process.env.EMAIL_DEV_RESET_LINK !== "false";
+
 /**
  * Sends the one-time signup welcome note without holding the signup response.
  *
@@ -465,18 +472,20 @@ const issueResetToken = async (user) => {
 /**
  * Issues a password-reset link.
  *
- * Deliberately returns nothing: the controller answers every caller with the
- * same generic message, so neither the return value nor the wording can
- * reveal whether the address belongs to an account.
+ * Returns an empty object on the generic path: the controller answers every
+ * caller with the same message, so neither the return value nor the wording
+ * reveals whether the address belongs to an account.
  *
  * Order matters: the token record is written first and the email is only
  * handed to the provider afterwards, so a link can never be mailed without a
- * matching record. A mail failure is logged without the link or recipient and
- * is swallowed, because reporting it would enumerate accounts.
+ * matching record. A mail failure is logged without the link or recipient. In
+ * development it also returns the one-time link, so local password recovery is
+ * not blocked by an unavailable provider; production never exposes it.
  */
 const requestPasswordReset = async (email) => {
   const startedAt = Date.now();
   const user = await UserModel.findOne({ email, is_active: true });
+  let devResetUrl = null;
 
   if (user) {
     // Replaces any outstanding link, so a delivery failure leaves behind a
@@ -500,12 +509,23 @@ const requestPasswordReset = async (email) => {
         errorName: error?.name,
         errorCode: error?.code,
       });
+
+      if (allowDevResetLink()) {
+        // Development only: make the one-time link available so password
+        // recovery is not blocked by an unavailable mail provider.
+        devResetUrl = resetUrl;
+        logger.warn("password_reset.dev_link_issued", {
+          userID: String(user._id),
+        });
+      }
     }
   }
 
   // Keep the fast "no such account" path and the slow "mail sent" path
   // indistinguishable to a caller timing the response.
   await wait(RESET_RESPONSE_FLOOR_MS - (Date.now() - startedAt));
+
+  return devResetUrl ? { devResetUrl } : {};
 };
 
 /**

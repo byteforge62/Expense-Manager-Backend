@@ -16,6 +16,7 @@ const app = require("../app");
 const UserModel = require("../src/models/UserModel");
 const PasswordResetTokenModel = require("../src/models/PasswordResetTokenModel");
 const logger = require("../src/infrastructure/logger");
+const { getClientBaseUrl } = require("../src/config/validateEnv");
 
 jest.setTimeout(60000);
 
@@ -69,7 +70,7 @@ describe("POST /api/user/forgotpassword", () => {
     expect(mailer.sendPasswordResetEmail).toHaveBeenCalledTimes(1);
 
     const resetUrl = lastResetUrl();
-    expect(resetUrl.startsWith("http://localhost:5173/reset-password/")).toBe(true);
+    expect(resetUrl.startsWith(`${getClientBaseUrl()}/reset-password/`)).toBe(true);
 
     const rawToken = tokenFromUrl(resetUrl);
     expect(rawToken.length).toBeGreaterThanOrEqual(43);
