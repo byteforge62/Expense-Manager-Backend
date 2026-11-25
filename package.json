@@ -9,6 +9,7 @@
     "start:e2e": "cross-env NODE_ENV=e2e node server.js",
     "lint": "eslint .",
     "bench": "node scripts/benchmark-api.js",
+    "seed:demo": "node scripts/seed-demo-data.js",
     "backfill": "node scripts/backfill-derived-data.js",
     "indexes:ensure": "node scripts/backfill-derived-data.js --indexes-only"
   },

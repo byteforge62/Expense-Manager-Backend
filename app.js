@@ -29,6 +29,7 @@ const purchaseRoutes = require("./src/modules/purchases/purchase.routes");
 const financialForecastRoutes = require("./src/modules/financial-forecasting/financial-forecast.routes");
 const financialIntelligenceRoutes = require("./src/modules/financial-intelligence/financial-intelligence.routes");
 const notificationRoutes = require("./src/modules/notifications/notification.routes");
+const demoRoutes = require("./src/routes/DemoRoutes");
 const realtimeRoutes = require("./src/modules/realtime/realtime.routes");
 const summariesRoutes = require("./src/modules/summaries/summaries.routes");
 const errorHandler = require("./src/middleware/error.middleware");
@@ -163,6 +164,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/api/realtime", realtimeRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api", demoRoutes);
 app.use("/api/summaries", summariesRoutes);
 app.use("/api", opsRoutes);
 app.use("/api", categoryRoutes);

@@ -15,6 +15,9 @@ const {
   startInfrastructure,
   stopInfrastructure,
 } = require("./src/infrastructure/bootstrap");
+const {
+  seedDemoWorkspaceOnStartup,
+} = require("./src/services/demo-data.service");
 
 const app = require("./app");
 
@@ -80,12 +83,12 @@ mongoose
   .connect(mongoUri, {
     serverSelectionTimeoutMS: Number(process.env.MONGO_SERVER_SELECTION_MS) || 10_000,
   })
-  .then(() => {
+  .then(async () => {
     logger.info("database.connected");
 
     // Build any missing indexes explicitly. `createIndexes` is additive: it
     // never drops an existing index, unlike `syncIndexes`.
-    Promise.all(
+    await Promise.all(
       mongoose.modelNames().map((name) =>
         mongoose
           .model(name)
@@ -94,7 +97,13 @@ mongoose
             logger.warn("database.index_create_failed", { model: name, error }),
           ),
       ),
-    ).then(() => logger.info("database.indexes_ensured"));
+    );
+    logger.info("database.indexes_ensured");
+
+    // Development convenience: make sure the two demo accounts and their
+    // sample ledger exist before the API starts answering requests. This is a
+    // no-op outside development and never blocks startup on failure.
+    await seedDemoWorkspaceOnStartup();
 
     startInfrastructure();
 

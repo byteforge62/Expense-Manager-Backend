@@ -10,13 +10,56 @@ const { NotFoundError, ConflictError, UnauthorizedError, ValidationError, AppErr
 const logger = require("../infrastructure/logger");
 const PasswordResetTokenModel = require("../models/PasswordResetTokenModel");
 const { getClientBaseUrl } = require("../config/validateEnv");
-const { sendPasswordResetEmail } = require("../infrastructure/email/mailer");
+const {
+  isEmailConfigured,
+  sendPasswordResetEmail,
+  sendWelcomeEmail,
+} = require("../infrastructure/email/mailer");
+const notificationService = require("../modules/notifications/notification.service");
+const welcomeService = require("./welcome.service");
 
 const RESET_TOKEN_TTL_MINUTES =
   Number(process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES) || 30;
 const RESET_RESPONSE_FLOOR_MS =
   Number(process.env.PASSWORD_RESET_RESPONSE_FLOOR_MS ?? 250);
 const BCRYPT_SALT_ROUNDS = 10;
+const EMAIL_DISABLED_ENVS = new Set(["test", "e2e"]);
+
+/**
+ * Sends the one-time signup welcome note without holding the signup response.
+ *
+ * Account creation must never fail because SMTP is down or unconfigured, so
+ * delivery happens after the response is prepared and every failure is logged
+ * without the recipient. The account-email consent is checked here, at send
+ * time, so a user who turns account email off is not mailed by a later retry.
+ */
+const queueWelcomeEmail = (user) => {
+  if (EMAIL_DISABLED_ENVS.has(process.env.NODE_ENV) || !isEmailConfigured()) {
+    return;
+  }
+
+  setImmediate(async () => {
+    try {
+      const preferences = await notificationService.getPreferences(user._id);
+
+      if (preferences.email === false || preferences.accountEmails === false) {
+        return;
+      }
+
+      await sendWelcomeEmail({
+        to: user.email,
+        name: user.name,
+        appUrl: getClientBaseUrl(),
+      });
+    } catch (error) {
+      logger.warn("email.welcome_failed", {
+        userID: String(user._id),
+        errorName: error?.name,
+        errorCode: error?.code,
+      });
+    }
+  });
+};
 
 const extractS3Key = (url) => {
   try {
@@ -64,6 +107,21 @@ const signupUser = async (data) => {
     password: hashedPassword,
     role: "User",
   });
+
+  // Put the greeting in the notification inbox now, so it is waiting on the
+  // first login, and send the branded welcome note in the background. Neither
+  // step may turn a successful signup into an error.
+  try {
+    await welcomeService.ensureWelcomeNotification(user);
+  } catch (error) {
+    logger.warn("welcome.notification_failed", {
+      userID: String(user._id),
+      error,
+    });
+  }
+
+  queueWelcomeEmail(user);
+
   return user;
 };
 
@@ -110,12 +168,17 @@ const loginUser = async (data) => {
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   });
 
+  // Greets the user on every login: a stored notification plus the message
+  // the client shows, which points a brand-new account at its first expense.
+  const welcome = await welcomeService.ensureWelcomeNotification(foundUser);
+
   const userData = foundUser.toObject();
   delete userData.password;
   return {
     accessToken,
     refreshToken,
     user: userData,
+    welcome,
   };
 };
 

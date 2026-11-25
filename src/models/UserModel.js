@@ -74,6 +74,14 @@ const UserSchema = new Schema(
         type: Boolean,
         default: true,
       },
+      email: {
+        type: Boolean,
+        default: true,
+      },
+      accountEmails: {
+        type: Boolean,
+        default: true,
+      },
       minimumPriority: {
         type: String,
         enum: ["low", "medium", "high", "critical"],

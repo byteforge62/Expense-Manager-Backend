@@ -71,6 +71,8 @@ const preferencesSchema = z
     recurringActivity: z.boolean().optional(),
     anomalies: z.boolean().optional(),
     recommendations: z.boolean().optional(),
+    email: z.boolean().optional(),
+    accountEmails: z.boolean().optional(),
     minimumPriority: z.enum(["low", "medium", "high", "critical"]).optional(),
   })
   .strict()

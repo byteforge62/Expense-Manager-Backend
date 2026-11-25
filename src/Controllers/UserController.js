@@ -56,6 +56,7 @@ const LoginUser = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, "Login Successfully", {
     token: result.accessToken,
     user: result.user,
+    welcome: result.welcome || null,
   });
 });
 

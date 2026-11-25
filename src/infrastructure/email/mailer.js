@@ -1,5 +1,14 @@
+const path = require("path");
 const nodemailer = require("nodemailer");
 const logger = require("../logger");
+const { buildWelcomeEmail } = require("./templates/welcome.template");
+
+// Raster copy of the violet FinTrack mark, attached inline so the email does
+// not depend on a remote image host (and does not break when images are slow).
+const WELCOME_LOGO_PATH = path.join(
+  __dirname,
+  "../../assets/email/fintrack-mark.png",
+);
 
 /**
  * --- OUTBOUND EMAIL ---
@@ -14,8 +23,19 @@ const logger = require("../logger");
 
 let transporter = null;
 
+// Brevo's SMTP key is distinct from an API key: an API key will connect but
+// fail authentication. BREVO_SMTP_KEY is the explicit name; BREVO_PASS is kept
+// for existing deployments.
+const getSmtpPassword = () =>
+  process.env.BREVO_SMTP_KEY?.trim() || process.env.BREVO_PASS?.trim();
+
 const isEmailConfigured = () =>
-  Boolean(process.env.BREVO_USER?.trim() && process.env.BREVO_PASS?.trim());
+  Boolean(process.env.BREVO_USER?.trim() && getSmtpPassword());
+
+const getFromAddress = () => {
+  const configured = process.env.MAIL_FROM?.trim();
+  return configured || `"FinTrack" <${process.env.BREVO_USER}>`;
+};
 
 const getTransporter = () => {
   if (!isEmailConfigured()) {
@@ -31,7 +51,7 @@ const getTransporter = () => {
       secure: false,
       auth: {
         user: process.env.BREVO_USER,
-        pass: process.env.BREVO_PASS,
+        pass: getSmtpPassword(),
       },
     });
   }
@@ -74,10 +94,8 @@ const sendPasswordResetEmail = async ({
   resetUrl,
   expiresInMinutes = 30,
 }) => {
-  const from = process.env.MAIL_FROM?.trim() || process.env.BREVO_USER;
-
   await getTransporter().sendMail({
-    from,
+    from: getFromAddress(),
     to,
     subject: "Reset your Fintrack password",
     text: buildText({ name, resetUrl, expiresInMinutes }),
@@ -88,7 +106,37 @@ const sendPasswordResetEmail = async ({
   logger.info("email.password_reset_sent");
 };
 
+/**
+ * Sends the one-time signup welcome note.
+ *
+ * The logo travels as a CID attachment, so the message renders branded even in
+ * clients that block remote images. Delivery is the caller's concern: signup
+ * must still succeed when SMTP is unavailable.
+ */
+const sendWelcomeEmail = async ({ to, name, appUrl }) => {
+  const { subject, html, text } = buildWelcomeEmail({ name, appUrl });
+
+  await getTransporter().sendMail({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+    attachments: [
+      {
+        filename: "fintrack-mark.png",
+        path: WELCOME_LOGO_PATH,
+        cid: "fintrack-mark",
+      },
+    ],
+  });
+
+  // No recipient or name in the log record.
+  logger.info("email.welcome_sent");
+};
+
 module.exports = {
   isEmailConfigured,
   sendPasswordResetEmail,
+  sendWelcomeEmail,
 };

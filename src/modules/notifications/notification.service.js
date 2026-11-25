@@ -14,9 +14,9 @@ const EVENTS = require("../../infrastructure/events/event-names");
  *   disabled a category never accumulates hidden state.
  * - `dedupeKey` makes creation idempotent per user (unique partial index), so
  *   a retried job cannot produce duplicate alerts for an unchanged condition.
- * - Only in-app delivery is implemented: no email/push provider is configured
- *   in this deployment, and inventing one would send real messages without
- *   consent.
+ * - In-app delivery is the only alert channel. The one outbound email is the
+ *   one-time account welcome, which the mailer gates on the `email` and
+ *   `accountEmails` consent flags before handing anything to SMTP.
  */
 
 const PREFERENCES_CACHE_TTL_MS = 60_000;
@@ -26,6 +26,8 @@ const PRIORITY_RANK = { low: 10, medium: 20, high: 30, critical: 40 };
 
 const DEFAULT_PREFERENCES = Object.freeze({
   inApp: true,
+  email: true,
+  accountEmails: true,
   budgetAlerts: true,
   billReminders: true,
   recurringActivity: true,
