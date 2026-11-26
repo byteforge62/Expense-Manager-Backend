@@ -4,6 +4,7 @@ const PurchaseModel = require("../models/PurchaseModel");
 const CategoryModel = require("../../../models/CategoryModel");
 
 const expenseService = require("../../../services/expense.service");
+const { canonicalizeImageUrl } = require("./purchase-image.service");
 const audit = require("../../../infrastructure/audit.service");
 const logger = require("../../../infrastructure/logger");
 const {
@@ -148,6 +149,11 @@ const linkExpense = async (purchase, expenseCategoryID, userId, context) => {
 const createPurchase = async (data, userId, context = {}) => {
   const { syncExpense = false, expenseCategoryID, orderId, ...rest } = data;
 
+  // Store a stable reference, never the (expiring) signed read link.
+  if (rest.imageUrl) {
+    rest.imageUrl = canonicalizeImageUrl(rest.imageUrl);
+  }
+
   const purchase = new PurchaseModel({
     ...rest,
     orderId: normalizeOptional(orderId),
@@ -274,6 +280,10 @@ const updatePurchase = async (purchaseId, data, userId, context = {}) => {
 
   if (orderId !== undefined) {
     updates.orderId = normalizeOptional(orderId);
+  }
+
+  if (updates.imageUrl) {
+    updates.imageUrl = canonicalizeImageUrl(updates.imageUrl);
   }
 
   // Explicit null clears an optional value; Mongoose would otherwise

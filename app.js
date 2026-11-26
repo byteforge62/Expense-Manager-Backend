@@ -1,5 +1,4 @@
 const express = require("express");
-const path = require("path");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
@@ -129,19 +128,10 @@ app.use("/api", createCsrfProtection(allowedOrigins));
 app.use(mongoSanitize());
 
 /**
- * Product images stored on disk (when object storage is not configured) are
- * served read-only. The API is a different origin from the SPA, so the
- * resource policy has to allow cross-origin reads for <img> to load it.
+ * There is deliberately no static `/uploads` mount. Product images are read
+ * through `GET /api/purchases/images/:file`, which requires a signed,
+ * expiring link bound to the owner (see purchases/services/purchase-image).
  */
-app.use(
-  "/uploads",
-  helmet.crossOriginResourcePolicy({ policy: "cross-origin" }),
-  express.static(path.join(__dirname, "uploads"), {
-    index: false,
-    maxAge: "7d",
-    dotfiles: "deny",
-  }),
-);
 
 app.use("/api/ai", aiLimiter, aiRoutes);
 app.use("/api/user", authLimiter);

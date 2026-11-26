@@ -47,20 +47,122 @@ const POLL_MS = 2000;
 const IMPORT_BATCH = 200;
 
 /**
- * Order-id formats worth trying before falling back to the "Order #" label the
- * order card itself prints. Adding a store with a known format is one line.
+ * Per-store detection hints.
+ *
+ * Every store renders its order history differently, but they all print an
+ * order id somewhere: as text ("Order ID: 123…"), as a data attribute, or in
+ * the link to the order details. The page reader stays heuristic and falls
+ * back to those generic signals, while these profiles add the formats and
+ * container hooks that make each store's cards read reliably.
+ *
+ * - `orderIdPatterns`   strict id formats known for the store
+ * - `orderLinkPatterns` id captured from an order-details href
+ * - `cardSelectors`     containers that hold one order
+ * - `titleSelectors`    product-name elements inside a card
+ * - `idSelectors`       elements that print the order id
+ * - `yearFilter`        store pages by `timeFilter=year-YYYY` (Amazon only)
+ *
+ * Adding a store later is one entry here plus its catalog line.
  */
-const ORDER_ID_PATTERNS = {
-  amazon: ["\\b\\d{3}-\\d{7}-\\d{7}\\b"],
-  flipkart: ["\\bOD\\d{10,}\\b"],
+const STORE_PROFILES = {
+  amazon: {
+    orderIdPatterns: ["\\b\\d{3}-\\d{7}-\\d{7}\\b"],
+    cardSelectors: [
+      ".order-card",
+      ".js-order-card",
+      "[data-component='orderCard']",
+      "[data-component='order-card']",
+    ],
+    titleSelectors: [
+      ".yohtmlc-product-title",
+      "[data-component='itemTitle']",
+      ".a-link-normal.a-text-normal",
+    ],
+    idSelectors: [".yohtmlc-order-id", ".order-id"],
+    yearFilter: true,
+  },
+  flipkart: {
+    orderIdPatterns: ["\\bOD\\d{10,}\\b"],
+    orderLinkPatterns: ["/orders?/(OD\\d{10,})", "[?&]orderId=(OD\\d{10,})"],
+    cardSelectors: [
+      "[data-testid='order-card']",
+      "[data-testid='orderCard']",
+      "div[class*='orderCard']",
+      "div[class*='OrderCard']",
+      "div[class*='order-card']",
+    ],
+    titleSelectors: ["[class*='title']", "a[href*='/p/']"],
+  },
+  myntra: {
+    orderLinkPatterns: ["/my/orders/(\\d{6,})", "[?&]orderId=(\\d{6,})"],
+    cardSelectors: [
+      "[class*='orderCard']",
+      "[class*='OrderCard']",
+      "[class*='order-card']",
+      "[data-testid*='order']",
+    ],
+  },
+  ajio: {
+    orderLinkPatterns: ["/my-orders/([A-Z0-9]{6,})", "[?&]orderId=([A-Z0-9]{6,})"],
+    cardSelectors: [
+      "[class*='orderCard']",
+      "[class*='order-card']",
+      "[data-testid*='order']",
+    ],
+    titleSelectors: ["[class*='prod-name']", "[class*='productName']", "[class*='name']"],
+  },
+  meesho: {
+    orderLinkPatterns: ["/orders?/(\\d{6,})", "[?&]orderId=(\\d{6,})"],
+    cardSelectors: [
+      "[class*='OrderCard']",
+      "[class*='orderCard']",
+      "[class*='order-card']",
+      "[data-testid*='order']",
+    ],
+  },
+  nykaa: {
+    orderLinkPatterns: ["/my-orders?/([A-Z0-9]{6,})", "[?&]orderId=([A-Z0-9]{6,})"],
+    cardSelectors: [
+      "[class*='orderCard']",
+      "[class*='order-card']",
+      "[data-testid*='order']",
+    ],
+  },
+  croma: {
+    orderLinkPatterns: ["/my-orders?/([A-Z0-9]{6,})", "[?&]orderId=([A-Z0-9]{6,})"],
+    cardSelectors: [
+      "[class*='orderCard']",
+      "[class*='order-card']",
+      "[data-testid*='order']",
+    ],
+  },
+  "reliance-digital": {
+    orderLinkPatterns: ["/orders?/([A-Z0-9]{6,})", "[?&]orderId=([A-Z0-9]{6,})"],
+    cardSelectors: [
+      "[class*='orderCard']",
+      "[class*='order-card']",
+      "[data-testid*='order']",
+    ],
+  },
+  snapdeal: {
+    orderLinkPatterns: ["/myorders?/([A-Z0-9]{6,})", "[?&]orderId=([A-Z0-9]{6,})"],
+    cardSelectors: [
+      "[class*='orderCard']",
+      "[class*='order-card']",
+      "[data-testid*='order']",
+    ],
+  },
+  tatacliq: {
+    orderLinkPatterns: ["/my-orders?/([A-Z0-9]{6,})", "[?&]orderId=([A-Z0-9]{6,})"],
+    cardSelectors: [
+      "[class*='orderCard']",
+      "[class*='order-card']",
+      "[data-testid*='order']",
+    ],
+  },
 };
 
-/**
- * Stores whose order history is paged with a `timeFilter=year-YYYY` parameter.
- * Their default view covers only a few recent months, so the script sweeps the
- * earlier years to reach the rest of the history.
- */
-const YEAR_FILTER_STORES = new Set(["amazon"]);
+const profileFor = (key) => STORE_PROFILES[String(key || "").toLowerCase()] || {};
 
 const withYearFilter = (address, year, pageIndex) => {
   const url = new URL(address);
@@ -251,7 +353,7 @@ const extractOrdersInPage = (config) => {
   const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
   const pricePattern = /(?:₹|rs\.?|inr)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/i;
   const datePattern =
-    /(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?,?\s+\d{4})|(\d{1,2}[/-]\d{1,2}[/-]\d{4})|(\d{4}-\d{2}-\d{2})/i;
+    /(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?,?\s+\d{4})|((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})|(\d{1,2}[/-]\d{1,2}[/-]\d{4})|(\d{4}-\d{2}-\d{2})/i;
   const quantityPattern = /(?:qty|quantity)\s*[:.]?\s*(\d{1,3})/i;
   const statusPattern =
     /^(order(ed| placed)?|delivered|shipped|cancelled|canceled|returned|replaced|arriving|out for delivery|in transit|payment|paid|view|track|details|invoice|buy again|buy it again|need help|write a review|write a product review|refund|completed|pending|view order details|order details|archive order|track package|get product support|leave seller feedback|return or replace items|share gift receipt|view or edit your browsing history)$/i;
@@ -311,10 +413,11 @@ const extractOrdersInPage = (config) => {
     return date.toISOString();
   };
 
-  // Containers a rendered order card actually uses. Amazon prints
-  // `.order-card.js-order-card`, Flipkart and the rest use their own hooks, so
-  // the list stays additive and the text-walk below still covers unknown ones.
+  // Containers a rendered order card actually uses. The store profile's own
+  // selectors come first, then the hooks shared by these marketplaces; the
+  // text-walk below still covers a store that renames everything.
   const CARD_SELECTORS = [
+    ...(config.cardSelectors || []),
     ".order-card",
     ".js-order-card",
     "[data-component='orderCard']",
@@ -323,40 +426,105 @@ const extractOrdersInPage = (config) => {
     "[data-orderid]",
     "[data-ordernumber]",
     "[data-order]",
+    "[data-testid*='order-card']",
+    "[data-testid*='orderCard']",
+    "[data-testid*='order_card']",
+    "[class*='orderCard']",
+    "[class*='OrderCard']",
+    "[class*='order-card']",
   ];
   const TITLE_SELECTORS = [
+    ...(config.titleSelectors || []),
     ".yohtmlc-product-title",
     "[data-component='itemTitle']",
     ".product-title",
     ".item-title",
+    "[class*='productTitle']",
+    "[class*='product-title']",
+    "[class*='itemTitle']",
     ".a-link-normal.a-text-normal",
   ];
   const ID_SELECTORS = [
+    ...(config.idSelectors || []),
     ".yohtmlc-order-id",
     ".order-id",
     ".orderId",
+    ".order-number",
+    ".orderNumber",
     "[data-order-id]",
+    "[data-orderid]",
+    "[data-ordernumber]",
   ];
+  const PRICE_SELECTORS = [
+    "[class*='price']",
+    "[class*='Price']",
+    "[data-testid*='price']",
+    "[data-testid*='Price']",
+  ];
+  const linkPatterns = (config.orderLinkPatterns || []).map(
+    (pattern) => new RegExp(pattern, "i"),
+  );
   // The order header prints the whole-order total ("TOTAL ₹444.00"). Reading
   // that is more accurate than the first price on the card, but it must not be
   // multiplied by a quantity afterwards.
   const totalPattern =
     /\b(?:order\s+total|grand\s+total|total|amount\s+paid)\b\s*:?\s*(?:₹|rs\.?|inr)?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/i;
 
-  const orderIdFor = (card) => {
-    const attribute =
-      card.getAttribute?.("data-order-id") ||
-      card.getAttribute?.("data-orderid") ||
-      card.getAttribute?.("data-ordernumber");
+  /** Reads an id out of the link that opens the order's details. */
+  const idFromLinks = (card) => {
+    for (const anchor of card.querySelectorAll("a[href]")) {
+      const href = String(anchor.getAttribute("href") || "");
 
-    if (attribute) {
-      const fromAttribute = findOrderId(attribute) || clean(attribute);
-      if (fromAttribute) return fromAttribute;
+      if (!/order/i.test(href) && !/order/i.test(clean(anchor.textContent))) {
+        continue;
+      }
+
+      for (const pattern of linkPatterns) {
+        const match = href.match(pattern);
+        if (match?.[1]) return match[1];
+      }
+
+      const segment = href.match(
+        /\/(?:my-?orders?|orders?|order-details?)\/([A-Za-z0-9][A-Za-z0-9_-]{5,40})(?:[/?#]|$)/i,
+      );
+      if (segment) return segment[1];
+
+      const query = href.match(
+        /[?&](?:orderId|order_id|orderNumber|order_no|orderNo)=([A-Za-z0-9_-]{6,40})/i,
+      );
+      if (query) return query[1];
+    }
+
+    return null;
+  };
+
+  const orderIdFor = (card) => {
+    const attributeNames = [
+      "data-order-id",
+      "data-orderid",
+      "data-ordernumber",
+      "data-order-number",
+      "data-order",
+    ];
+
+    // The card itself, then any descendant that carries the id as an attribute.
+    for (const element of [card, ...card.querySelectorAll(attributeNames.map((name) => `[${name}]`).join(","))]) {
+      for (const name of attributeNames) {
+        const value = element.getAttribute?.(name);
+
+        if (value) {
+          const fromAttribute = findOrderId(value) || clean(value);
+          if (fromAttribute) return fromAttribute;
+        }
+      }
     }
 
     const slot = card.getAttribute?.("data-csa-c-slot-id") || "";
     const fromSlot = slot.match(/order-card\.([A-Z0-9-]{6,})$/i);
     if (fromSlot) return fromSlot[1];
+
+    const fromLinks = idFromLinks(card);
+    if (fromLinks) return fromLinks;
 
     for (const selector of ID_SELECTORS) {
       for (const element of card.querySelectorAll(selector)) {
@@ -378,6 +546,23 @@ const extractOrdersInPage = (config) => {
           continue;
         }
 
+        return text;
+      }
+    }
+
+    // Most marketplaces make the product name the link to the product page.
+    for (const anchor of card.querySelectorAll(
+      "a[href*='/p/'], a[href*='/product'], a[href*='/item'], a[href*='/buy']",
+    )) {
+      const text = clean(anchor.textContent);
+
+      if (
+        text.length >= 3 &&
+        text.length <= 180 &&
+        /[a-z]{3}/i.test(text) &&
+        !priceOnly.test(text) &&
+        !statusPattern.test(text)
+      ) {
         return text;
       }
     }
@@ -453,7 +638,37 @@ const extractOrdersInPage = (config) => {
 
     const totalMatch = text.match(totalPattern);
     const totalPrice = totalMatch ? Number(totalMatch[1].replace(/,/g, "")) : 0;
-    const unitPrice = totalPrice > 0 ? totalPrice : parsePrice(text);
+
+    // A price element is more precise than the first price in the card text,
+    // which may belong to a discount badge or an EMI line.
+    const markupPrice = (() => {
+      if (totalPrice > 0) return 0;
+
+      // The most specific price element wins: a card-level "price details"
+      // block also contains MRP, discounts and EMI lines.
+      let best = 0;
+      let bestLength = Infinity;
+
+      for (const selector of PRICE_SELECTORS) {
+        for (const element of card.querySelectorAll(selector)) {
+          const text = clean(element.textContent);
+
+          if (!pricePattern.test(text) || text.length >= bestLength) continue;
+
+          const amount = parsePrice(text);
+
+          if (amount > 0) {
+            best = amount;
+            bestLength = text.length;
+          }
+        }
+      }
+
+      return best;
+    })();
+
+    const unitPrice =
+      totalPrice > 0 ? totalPrice : markupPrice > 0 ? markupPrice : parsePrice(text);
 
     if (!(unitPrice > 0)) return;
 
@@ -864,9 +1079,14 @@ const main = async () => {
     client = await CdpClient.connect(page.webSocketDebuggerUrl);
     await client.send("Runtime.enable");
 
+    const profile = profileFor(store.key);
     const config = {
       store: store.key,
-      orderIdPatterns: ORDER_ID_PATTERNS[store.key] || [],
+      orderIdPatterns: profile.orderIdPatterns || [],
+      orderLinkPatterns: profile.orderLinkPatterns || [],
+      cardSelectors: profile.cardSelectors || [],
+      titleSelectors: profile.titleSelectors || [],
+      idSelectors: profile.idSelectors || [],
     };
 
     /**
@@ -874,10 +1094,12 @@ const main = async () => {
      * lazily renders more. Resolves to [] when nothing appears in time.
      */
     const collect = async (waitMs, scrollLimit) => {
-      const deadline = Date.now() + waitMs;
+      const startAt = Date.now();
+      const deadline = startAt + waitMs;
       let found = [];
       let scrollCount = 0;
       let lastStatus = 0;
+      let triedOrdersLink = false;
 
       while (Date.now() < deadline) {
         try {
@@ -887,6 +1109,33 @@ const main = async () => {
         }
 
         if (found.length > 0) return found;
+
+        // Some stores drop the user on their home page after sign-in instead of
+        // the orders page. Open it from the site's own nav once, then keep
+        // polling: this works for every store without a per-store URL.
+        if (!triedOrdersLink && Date.now() - startAt > 8000) {
+          triedOrdersLink = true;
+
+          try {
+            const navigated = await evaluateInPage(
+              client,
+              `(() => {
+                const link = Array.from(document.querySelectorAll("a[href]")).find(
+                  (element) =>
+                    /^(my\\s+)?orders$/i.test((element.textContent || "").trim()) &&
+                    /order/i.test(element.href),
+                );
+                if (!link) return false;
+                link.click();
+                return true;
+              })()`,
+            );
+
+            if (navigated) await sleep(1500);
+          } catch {
+            /* keep waiting on the current page */
+          }
+        }
 
         if (scrollCount < scrollLimit) {
           scrollCount += 1;
@@ -938,7 +1187,7 @@ const main = async () => {
     // The first page is only the store's default window (a few recent months on
     // Amazon). Walk each year filter and its pages so older orders are kept
     // too. Two years in a row with nothing ends the sweep.
-    if (yearCount > 0 && YEAR_FILTER_STORES.has(store.key) && !args.url) {
+    if (yearCount > 0 && profile.yearFilter && !args.url) {
       const currentYear = new Date().getFullYear();
       let emptyYears = 0;
 
@@ -983,6 +1232,32 @@ const main = async () => {
 
         if (pageOrders.length === 0) emptyYears += 1;
       }
+    }
+
+    // Infinite lists (Myntra, AJIO, Meesho, …) hide older orders behind a
+    // "Load more" control instead of a year filter. Click through it until the
+    // page stops offering more, then keep what was read.
+    for (let click = 0; click < 10; click += 1) {
+      const clicked = await evaluateInPage(
+        client,
+        `(() => {
+          const pattern = /^(load more|view more|show more|see more|load older orders|show older orders|view older orders)$/i;
+          const control = Array.from(document.querySelectorAll("button, a")).find(
+            (element) =>
+              pattern.test((element.textContent || "").trim()) &&
+              !element.disabled &&
+              element.getAttribute("aria-disabled") !== "true",
+          );
+          if (!control) return false;
+          control.click();
+          return true;
+        })()`,
+      ).catch(() => false);
+
+      if (!clicked) break;
+
+      await sleep(1500);
+      addOrders(await collect(15000, 1));
     }
 
     const orders = Array.from(ordersById.values());
