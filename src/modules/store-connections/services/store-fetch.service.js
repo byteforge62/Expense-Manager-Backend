@@ -39,6 +39,22 @@ const running = new Set();
 const roundMoney = (value) =>
   Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 
+/**
+ * The fetch reads the browser session of whoever is signed in on the machine
+ * running this API. Offering it to a remote client would hand one account the
+ * store session (and orders) of the person sitting at the computer, so it is
+ * limited to a client on the same machine.
+ *
+ * Only the socket address is trusted: `X-Forwarded-For` and similar headers are
+ * client-controlled and are deliberately ignored.
+ */
+const isLocalClient = (request) => {
+  const raw = String(request?.socket?.remoteAddress || request?.ip || "");
+  const address = raw.startsWith("::ffff:") ? raw.slice(7) : raw;
+
+  return address === "127.0.0.1" || address === "::1" || address === "localhost";
+};
+
 const lastJsonLine = (output) => {
   const lines = output.split(/\r?\n/).filter((line) => line.trim());
 
@@ -227,4 +243,4 @@ const fetchStoreOrders = async (connectionId, userId, context = {}) => {
   }
 };
 
-module.exports = { fetchStoreOrders, SCRIPT_PATH };
+module.exports = { fetchStoreOrders, isLocalClient, SCRIPT_PATH };

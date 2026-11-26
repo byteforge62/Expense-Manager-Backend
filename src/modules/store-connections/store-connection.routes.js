@@ -1,6 +1,8 @@
 const routes = require("express").Router();
+const rateLimit = require("express-rate-limit");
 
 const { requireAuth } = require("../../middleware/auth.middleware");
+const { ForbiddenError } = require("../../errors/AppError");
 const validate = require("../../middleware/validate.middleware");
 const { asyncHandler, sendSuccess } = require("../../utiles/response");
 
@@ -49,7 +51,29 @@ const importOrders = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, "Store orders imported successfully", result);
 });
 
+/**
+ * A fetch launches a real browser and walks several pages, so it is the most
+ * expensive endpoint in the app. Five runs per ten minutes is plenty for a
+ * person and stops a client from using it as a browser-spawning loop.
+ */
+const fetchLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: Number(process.env.STORE_FETCH_RATE_LIMIT) || 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many store fetches. Wait a few minutes and try again.",
+  },
+});
+
 const fetchOrders = asyncHandler(async (req, res) => {
+  if (!storeFetch.isLocalClient(req)) {
+    throw new ForbiddenError(
+      "Automatic fetch reads the store session of the computer running FinTrack, so it only works from a browser on that computer.",
+    );
+  }
+
   const data = await storeFetch.fetchStoreOrders(req.params.id, req.user.id, {
     requestId: req.id,
   });
@@ -73,6 +97,7 @@ routes.post(
 );
 routes.post(
   "/:id/fetch",
+  fetchLimiter,
   validate({ params: storeConnectionIdParamSchema }),
   fetchOrders,
 );

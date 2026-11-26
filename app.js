@@ -106,7 +106,19 @@ const apiLimiter = rateLimit({
   message: standardLimitMessage("Too many requests. Please try again later."),
 });
 
-app.set("trust proxy", 1);
+/**
+ * Proxy trust is opt-in.
+ *
+ * Trusting the proxy unconditionally lets anyone talking to the API directly
+ * send their own `X-Forwarded-For` and get a fresh rate-limit bucket per
+ * request — which would defeat the login and password-reset limiters. A
+ * deployment behind a real proxy sets TRUST_PROXY to the number of hops.
+ */
+const trustProxyHops = Number(process.env.TRUST_PROXY);
+app.set(
+  "trust proxy",
+  Number.isFinite(trustProxyHops) && trustProxyHops > 0 ? trustProxyHops : false,
+);
 app.use(helmet());
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
@@ -161,7 +173,17 @@ app.get("/ready", (req, res) => {
   });
 });
 
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+/**
+ * The interactive docs describe every endpoint and schema. Useful while
+ * developing, needless exposure on a public deployment, so they are opt-in
+ * there through ENABLE_API_DOCS=true.
+ */
+const apiDocsEnabled =
+  process.env.NODE_ENV !== "production" || process.env.ENABLE_API_DOCS === "true";
+
+if (apiDocsEnabled) {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
 app.use("/api/realtime", realtimeRoutes);
 app.use("/api/notifications", notificationRoutes);
@@ -183,6 +205,19 @@ app.use("/api/store-connections", storeConnectionRoutes);
 app.use("/api/purchase-intelligence", purchaseIntelligenceRoutes);
 app.use("/api/financial-forecast", financialForecastRoutes);
 app.use("/api/financial-intelligence", financialIntelligenceRoutes);
+
+/**
+ * Unknown API paths answer JSON rather than Express' default HTML error page:
+ * a probe learns nothing about the stack, and clients get one shape.
+ */
+app.use("/api", (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Endpoint not found",
+    requestId: req.id,
+  });
+});
+
 app.use(errorHandler);
 
 module.exports = app;
