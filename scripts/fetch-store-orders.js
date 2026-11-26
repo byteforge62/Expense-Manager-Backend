@@ -25,7 +25,11 @@
  *   --api <origin>     FinTrack API origin         (or FINTRACK_API)
  *   --wait <seconds>   How long to wait for orders (default 300)
  *   --scroll <count>   Extra page scrolls to load more orders (default 6)
+ *   --years <count>    Earlier years to sweep after the first page (default 4)
+ *   --pages <count>    Pages to walk per year (default 3)
  *   --dry-run          Print what was found, import nothing
+ *   --fetch-only       Read the orders and print them; skip the FinTrack import
+ *   --json             Machine-readable output for the app's "Fetch orders" button
  *   --headless         Run Chrome without a window (only useful when signed in)
  *   --profile <dir>    Chrome profile directory (or FINTRACK_CHROME_PROFILE)
  *   --chrome <path>    Chrome/Edge executable (or CHROME_PATH)
@@ -51,6 +55,24 @@ const ORDER_ID_PATTERNS = {
   flipkart: ["\\bOD\\d{10,}\\b"],
 };
 
+/**
+ * Stores whose order history is paged with a `timeFilter=year-YYYY` parameter.
+ * Their default view covers only a few recent months, so the script sweeps the
+ * earlier years to reach the rest of the history.
+ */
+const YEAR_FILTER_STORES = new Set(["amazon"]);
+
+const withYearFilter = (address, year, pageIndex) => {
+  const url = new URL(address);
+
+  url.searchParams.set("timeFilter", `year-${year}`);
+
+  if (pageIndex > 0) url.searchParams.set("page", String(pageIndex));
+  else url.searchParams.delete("page");
+
+  return url.toString();
+};
+
 const VALUE_FLAGS = new Set([
   "store",
   "url",
@@ -61,13 +83,24 @@ const VALUE_FLAGS = new Set([
   "api",
   "wait",
   "scroll",
+  "years",
+  "pages",
   "profile",
   "chrome",
   "port",
 ]);
-const BOOLEAN_FLAGS = new Set(["dry-run", "headless", "help"]);
+const BOOLEAN_FLAGS = new Set(["dry-run", "headless", "help", "fetch-only", "json"]);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * In `--json` mode stdout carries one JSON document and nothing else, so the
+ * progress prose is redirected to stderr.
+ */
+let jsonMode = false;
+
+const log = (message) =>
+  jsonMode ? process.stderr.write(message) : process.stdout.write(message);
 
 const parseArgs = (argv) => {
   const args = {};
@@ -107,8 +140,9 @@ const printUsage = () => {
       "",
       `Stores: ${keys}`,
       "",
-      "Flags: --url --account --password --token --api --wait --scroll --dry-run",
-      "       --headless --profile --chrome --port",
+      "Flags: --url --account --password --token --api --wait --scroll --years",
+      "       --pages --dry-run --headless --profile --chrome --port",
+      "       --fetch-only --json",
       "",
       "A Chrome window opens at the store's order page. Sign in there if asked;",
       "the script reads the orders once they are on screen and then imports them.",
@@ -220,7 +254,7 @@ const extractOrdersInPage = (config) => {
     /(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?,?\s+\d{4})|(\d{1,2}[/-]\d{1,2}[/-]\d{4})|(\d{4}-\d{2}-\d{2})/i;
   const quantityPattern = /(?:qty|quantity)\s*[:.]?\s*(\d{1,3})/i;
   const statusPattern =
-    /^(order(ed| placed)?|delivered|shipped|cancelled|canceled|returned|replaced|arriving|out for delivery|in transit|payment|paid|view|track|details|invoice|buy again|need help|write a review|refund|completed|pending)$/i;
+    /^(order(ed| placed)?|delivered|shipped|cancelled|canceled|returned|replaced|arriving|out for delivery|in transit|payment|paid|view|track|details|invoice|buy again|buy it again|need help|write a review|write a product review|refund|completed|pending|view order details|order details|archive order|track package|get product support|leave seller feedback|return or replace items|share gift receipt|view or edit your browsing history)$/i;
   const priceOnly =
     /^(?:₹|rs\.?|inr)?\s*[0-9][0-9,.]*\s*$|^(?:₹|rs\.?|inr)\s*[0-9][0-9,.]*/i;
 
@@ -249,13 +283,106 @@ const extractOrdersInPage = (config) => {
   };
 
   const parseDate = (text) => {
-    const match = text.match(datePattern);
+    // Order cards also print unrelated dates (delivery windows, a "since"
+    // label, even a 01/01/1970 placeholder). The order's own label is the one
+    // worth reading, so the search starts there.
+    const labelled = text.match(
+      /(?:order(?:ed)?\s+placed|ordered\s+on|order\s+date|placed\s+on)\b/i,
+    );
+    const scope = labelled ? text.slice(labelled.index) : text;
+    const match = scope.match(datePattern) || text.match(datePattern);
+
     if (!match) return undefined;
 
     const raw = match[0].replace(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/, "$3-$2-$1");
     const date = new Date(raw.replace(/,/g, "").replace(/\./g, ""));
 
-    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+    if (Number.isNaN(date.getTime())) return undefined;
+
+    // A purchase cannot predate online shopping, and cannot be in the future:
+    // either value means the card printed something that is not the order date.
+    if (
+      date.getUTCFullYear() < 2000 ||
+      date.getTime() > Date.now() + 24 * 60 * 60 * 1000
+    ) {
+      return undefined;
+    }
+
+    return date.toISOString();
+  };
+
+  // Containers a rendered order card actually uses. Amazon prints
+  // `.order-card.js-order-card`, Flipkart and the rest use their own hooks, so
+  // the list stays additive and the text-walk below still covers unknown ones.
+  const CARD_SELECTORS = [
+    ".order-card",
+    ".js-order-card",
+    "[data-component='orderCard']",
+    "[data-component='order-card']",
+    "[data-order-id]",
+    "[data-orderid]",
+    "[data-ordernumber]",
+    "[data-order]",
+  ];
+  const TITLE_SELECTORS = [
+    ".yohtmlc-product-title",
+    "[data-component='itemTitle']",
+    ".product-title",
+    ".item-title",
+    ".a-link-normal.a-text-normal",
+  ];
+  const ID_SELECTORS = [
+    ".yohtmlc-order-id",
+    ".order-id",
+    ".orderId",
+    "[data-order-id]",
+  ];
+  // The order header prints the whole-order total ("TOTAL ₹444.00"). Reading
+  // that is more accurate than the first price on the card, but it must not be
+  // multiplied by a quantity afterwards.
+  const totalPattern =
+    /\b(?:order\s+total|grand\s+total|total|amount\s+paid)\b\s*:?\s*(?:₹|rs\.?|inr)?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/i;
+
+  const orderIdFor = (card) => {
+    const attribute =
+      card.getAttribute?.("data-order-id") ||
+      card.getAttribute?.("data-orderid") ||
+      card.getAttribute?.("data-ordernumber");
+
+    if (attribute) {
+      const fromAttribute = findOrderId(attribute) || clean(attribute);
+      if (fromAttribute) return fromAttribute;
+    }
+
+    const slot = card.getAttribute?.("data-csa-c-slot-id") || "";
+    const fromSlot = slot.match(/order-card\.([A-Z0-9-]{6,})$/i);
+    if (fromSlot) return fromSlot[1];
+
+    for (const selector of ID_SELECTORS) {
+      for (const element of card.querySelectorAll(selector)) {
+        const labelled = findOrderId(clean(element.textContent));
+        if (labelled) return labelled;
+      }
+    }
+
+    return findOrderId(clean(card.textContent));
+  };
+
+  const titleFor = (card) => {
+    for (const selector of TITLE_SELECTORS) {
+      for (const element of card.querySelectorAll(selector)) {
+        const text = clean(element.textContent);
+
+        if (text.length < 3) continue;
+        if (datePattern.test(text) && clean(text.replace(datePattern, "")).length < 3) {
+          continue;
+        }
+
+        return text;
+      }
+    }
+
+    return "";
   };
 
   /** Climbs from the id's element to the card that also shows a price. */
@@ -290,6 +417,13 @@ const extractOrdersInPage = (config) => {
       if (!text || text.length < 3 || text.length > 180) continue;
       if (orderId && text.includes(orderId)) continue;
       if (priceOnly.test(text) || statusPattern.test(text)) continue;
+      // A delivery estimate is not a product name: skip text that is only a date.
+      if (
+        datePattern.test(text) &&
+        clean(text.replace(datePattern, "")).length < 3
+      ) {
+        continue;
+      }
       if (pricePattern.test(text) && text.length < 24) continue;
       if (!/[a-z]{3}/i.test(text)) continue;
       if (/^(qty|quantity|size|colour|color)\b/i.test(text)) continue;
@@ -303,23 +437,28 @@ const extractOrdersInPage = (config) => {
   };
 
   const orders = new Map();
+  const cards = [];
 
-  const consider = (element) => {
-    const card = cardFor(element);
+  const hasCard = (card) =>
+    cards.some((known) => known === card || known.contains(card));
+
+  const readCard = (card) => {
     const text = clean(card.textContent);
 
     if (!text || text.length < 12) return;
 
-    const orderId = findOrderId(text);
+    const orderId = orderIdFor(card);
 
     if (!orderId || orders.has(orderId)) return;
 
-    const unitPrice = parsePrice(text);
+    const totalMatch = text.match(totalPattern);
+    const totalPrice = totalMatch ? Number(totalMatch[1].replace(/,/g, "")) : 0;
+    const unitPrice = totalPrice > 0 ? totalPrice : parsePrice(text);
 
-    if (unitPrice <= 0) return;
+    if (!(unitPrice > 0)) return;
 
     const quantityMatch = text.match(quantityPattern);
-    const name = nameFor(card, orderId);
+    const name = titleFor(card) || nameFor(card, orderId);
 
     if (name.length < 3) return;
 
@@ -327,17 +466,26 @@ const extractOrdersInPage = (config) => {
       orderId,
       name: name.slice(0, 160),
       unitPrice,
-      quantity: quantityMatch ? Math.max(Number(quantityMatch[1]) || 1, 1) : 1,
+      quantity:
+        totalPrice > 0
+          ? 1
+          : quantityMatch
+            ? Math.max(Number(quantityMatch[1]) || 1, 1)
+            : 1,
       purchaseDate: parseDate(text),
     });
   };
 
-  for (const element of body.querySelectorAll(
-    "[data-order-id], [data-orderid], [data-order], [data-ordernumber]",
-  )) {
-    consider(element);
+  for (const selector of CARD_SELECTORS) {
+    for (const element of body.querySelectorAll(selector)) {
+      if (hasCard(element)) continue;
+
+      cards.push(element);
+    }
   }
 
+  // Fallback for a store whose card has no known class: the text that prints
+  // the order id is climbed to a container that also shows a price.
   const walker = document.createTreeWalker(
     body,
     globalThis.NodeFilter.SHOW_TEXT,
@@ -348,13 +496,17 @@ const extractOrdersInPage = (config) => {
     const value = clean(node.nodeValue);
 
     if (value && value.length < 80 && node.parentElement) {
-      const candidate = findOrderId(value);
+      if (findOrderId(value)) {
+        const card = cardFor(node.parentElement);
 
-      if (candidate) consider(node.parentElement);
+        if (!hasCard(card)) cards.push(card);
+      }
     }
 
     node = walker.nextNode();
   }
+
+  cards.forEach(readCard);
 
   return Array.from(orders.values());
 };
@@ -617,6 +769,8 @@ const closeChrome = async (version, client) => {
 const main = async () => {
   const args = parseArgs(process.argv.slice(2));
 
+  jsonMode = Boolean(args.json);
+
   if (args.help) {
     printUsage();
     return;
@@ -643,6 +797,8 @@ const main = async () => {
   const targetUrl = args.url || store.ordersUrl;
   const waitSeconds = Number(args.wait || 300);
   const scrolls = Number(args.scroll ?? 6);
+  const yearCount = Number(args.years ?? 4);
+  const maxPages = Math.max(Number(args.pages || 3), 1);
   const port = Number(args.port || 9333);
   // Chrome wants an absolute --user-data-dir; a relative one silently fails to
   // open the DevTools port on Windows.
@@ -658,26 +814,32 @@ const main = async () => {
   }
 
   let token = args.token || "";
+  // The app's Fetch button runs this script without FinTrack credentials: it
+  // only needs the store page, and the API imports what it returns.
+  const fetchOnly = Boolean(args["fetch-only"]) || jsonMode;
+  let connection = null;
 
-  if (!token) {
-    if (!email || !password) {
-      throw new Error(
-        "Pass --email and --password (or set FINTRACK_EMAIL / FINTRACK_PASSWORD), or reuse a session with --token.",
-      );
+  if (!fetchOnly) {
+    if (!token) {
+      if (!email || !password) {
+        throw new Error(
+          "Pass --email and --password (or set FINTRACK_EMAIL / FINTRACK_PASSWORD), or reuse a session with --token.",
+        );
+      }
+
+      log(`Signing in to FinTrack as ${email}…\n`);
+      token = await signIn(apiOrigin, email, password);
     }
 
-    process.stdout.write(`Signing in to FinTrack as ${email}…\n`);
-    token = await signIn(apiOrigin, email, password);
+    connection = await resolveConnection(
+      apiOrigin,
+      token,
+      store,
+      typeof args.account === "string" ? args.account : email,
+    );
   }
 
-  const connection = await resolveConnection(
-    apiOrigin,
-    token,
-    store,
-    typeof args.account === "string" ? args.account : email,
-  );
-
-  process.stdout.write(
+  log(
     `Opening ${store.name} orders in Chrome (${profileDir}).\n` +
       (args.headless
         ? ""
@@ -707,77 +869,158 @@ const main = async () => {
       orderIdPatterns: ORDER_ID_PATTERNS[store.key] || [],
     };
 
-    const deadline = Date.now() + waitSeconds * 1000;
-    let orders = [];
-    let scrollCount = 0;
-    let lastStatus = 0;
+    /**
+     * Reads the order cards the current page shows, scrolling while the page
+     * lazily renders more. Resolves to [] when nothing appears in time.
+     */
+    const collect = async (waitMs, scrollLimit) => {
+      const deadline = Date.now() + waitMs;
+      let found = [];
+      let scrollCount = 0;
+      let lastStatus = 0;
 
-    while (Date.now() < deadline) {
-      try {
-        orders = (await readOrders(client, config)) || [];
-      } catch {
-        orders = [];
-      }
-
-      if (orders.length > 0) break;
-
-      if (scrollCount < scrolls) {
-        scrollCount += 1;
-
+      while (Date.now() < deadline) {
         try {
-          await evaluateInPage(
-            client,
-            "window.scrollTo(0, document.body.scrollHeight); document.body.scrollHeight",
-          );
+          found = (await readOrders(client, config)) || [];
         } catch {
-          /* page still loading */
-        }
-      }
-
-      if (Date.now() - lastStatus > 15000) {
-        lastStatus = Date.now();
-
-        let where = targetUrl;
-
-        try {
-          where = await evaluateInPage(client, "location.href");
-        } catch {
-          /* keep the requested URL */
+          found = [];
         }
 
-        process.stdout.write(`Waiting for order cards on ${where}…\n`);
+        if (found.length > 0) return found;
+
+        if (scrollCount < scrollLimit) {
+          scrollCount += 1;
+
+          try {
+            await evaluateInPage(
+              client,
+              "window.scrollTo(0, document.body.scrollHeight); document.body.scrollHeight",
+            );
+          } catch {
+            /* page still loading */
+          }
+        }
+
+        if (Date.now() - lastStatus > 15000) {
+          lastStatus = Date.now();
+
+          let where = targetUrl;
+
+          try {
+            where = await evaluateInPage(client, "location.href");
+          } catch {
+            /* keep the requested URL */
+          }
+
+          log(`Waiting for order cards on ${where}…\n`);
+        }
+
+        await sleep(POLL_MS);
       }
 
-      await sleep(POLL_MS);
-    }
+      return found;
+    };
 
-    if (orders.length === 0) {
+    const ordersById = new Map();
+    const addOrders = (found) =>
+      found.forEach((order) => {
+        if (!ordersById.has(order.orderId)) ordersById.set(order.orderId, order);
+      });
+
+    addOrders(await collect(waitSeconds * 1000, scrolls));
+
+    if (ordersById.size === 0) {
       throw new Error(
         `No orders were found within ${waitSeconds}s. Sign in to ${store.name} in the Chrome window, open the order history, and run the script again (the profile keeps you signed in).`,
       );
     }
 
+    // The first page is only the store's default window (a few recent months on
+    // Amazon). Walk each year filter and its pages so older orders are kept
+    // too. Two years in a row with nothing ends the sweep.
+    if (yearCount > 0 && YEAR_FILTER_STORES.has(store.key) && !args.url) {
+      const currentYear = new Date().getFullYear();
+      let emptyYears = 0;
+
+      for (let offset = 0; offset <= yearCount && emptyYears < 2; offset += 1) {
+        const year = currentYear - offset;
+        let pageIndex = 0;
+        let pageOrders = [];
+
+        while (pageIndex < maxPages) {
+          await client.send("Page.navigate", {
+            url: withYearFilter(store.ordersUrl, year, pageIndex),
+          });
+          await sleep(600);
+
+          pageOrders = await collect(20000, 2);
+          addOrders(pageOrders);
+
+          log(
+            `  ${year}${pageIndex > 0 ? ` page ${pageIndex + 1}` : ""}: ${pageOrders.length} order(s)\n`,
+          );
+
+          if (pageOrders.length === 0) break;
+          if (pageIndex === 0) emptyYears = 0;
+
+          const next = await evaluateInPage(
+            client,
+            `(() => {
+              const anchor = Array.from(document.querySelectorAll("a[href]")).find(
+                (element) =>
+                  /^(next|next page|next ›|›|→)$/i.test((element.textContent || "").trim()) &&
+                  /page=/.test(element.href) &&
+                  !/a-disabled/.test(element.className || ""),
+              );
+              return anchor ? anchor.href : "";
+            })()`,
+          );
+
+          if (!next) break;
+
+          pageIndex += 1;
+        }
+
+        if (pageOrders.length === 0) emptyYears += 1;
+      }
+    }
+
+    const orders = Array.from(ordersById.values());
     const total = orders.reduce(
       (sum, order) => sum + order.unitPrice * (order.quantity || 1),
       0,
     );
 
-    process.stdout.write(
+    log(
       `\nFound ${orders.length} order(s) worth ₹${total.toLocaleString("en-IN")}.\n`,
     );
 
     orders.slice(0, 10).forEach((order) => {
-      process.stdout.write(
+      log(
         `  • ${order.orderId}  ${order.name.slice(0, 52)}  ₹${order.unitPrice.toLocaleString("en-IN")}${order.quantity > 1 ? ` × ${order.quantity}` : ""}\n`,
       );
     });
 
     if (orders.length > 10) {
-      process.stdout.write(`  … and ${orders.length - 10} more\n`);
+      log(`  … and ${orders.length - 10} more\n`);
+    }
+
+    if (jsonMode) {
+      // Only the orders reach stdout; the API turns them into purchases once
+      // the user confirms them in the app.
+      process.stdout.write(
+        `${JSON.stringify({ store: store.key, storeName: store.name, orders })}\n`,
+      );
+      return;
+    }
+
+    if (fetchOnly) {
+      log("\nFetch only: nothing was imported.\n");
+      return;
     }
 
     if (args["dry-run"]) {
-      process.stdout.write("\nDry run: nothing was imported.\n");
+      log("\nDry run: nothing was imported.\n");
       return;
     }
 
@@ -805,6 +1048,11 @@ const main = async () => {
 };
 
 main().catch((error) => {
-  process.stderr.write(`\n${error.message}\n`);
+  if (jsonMode) {
+    process.stdout.write(`${JSON.stringify({ error: error.message })}\n`);
+  } else {
+    process.stderr.write(`\n${error.message}\n`);
+  }
+
   process.exitCode = 1;
 });

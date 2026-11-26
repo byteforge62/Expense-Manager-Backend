@@ -7,7 +7,6 @@ const IncomeModel = require("../models/IncomeModel");
 const BudgetModel = require("../models/BudgetModel");
 const BillModel = require("../models/BillModel");
 const RecurringModel = require("../models/RecurringModel");
-const PurchaseModel = require("../modules/purchases/models/PurchaseModel");
 const logger = require("../infrastructure/logger");
 
 /**
@@ -15,8 +14,9 @@ const logger = require("../infrastructure/logger");
  *
  * Creates the two accounts the project is explored with and fills the normal
  * user's ledger with believable records, so every page (overview, expenses,
- * income, budgets, bills, recurring, purchases, reports, forecast) has
- * something real to render.
+ * income, budgets, bills, recurring, reports, forecast) has something real to
+ * render. Purchases are deliberately not seeded: that list only ever holds
+ * records imported from the user's own store accounts.
  *
  * Safe to run on every server start:
  * - accounts are upserted by email and their passwords are only re-hashed when
@@ -115,39 +115,6 @@ const BILL_RECORDS = [
   { name: "Electricity bill", amount: 2450, dueInDays: 8 },
   { name: "Internet bill", amount: 999, dueInDays: 12 },
   { name: "Credit card payment", amount: 8500, dueInDays: 18 },
-];
-
-const PURCHASE_RECORDS = [
-  {
-    name: "Wireless headphones",
-    category: "Shopping",
-    merchant: "Audio Hub",
-    unitPrice: 3499,
-    quantity: 1,
-    daysAgo: 6,
-    status: "DELIVERED",
-    orderId: "DEMO-ORDER-1001",
-  },
-  {
-    name: "Running shoes",
-    category: "Shopping",
-    merchant: "Sportswear Store",
-    unitPrice: 1899,
-    quantity: 1,
-    daysAgo: 18,
-    status: "DELIVERED",
-    orderId: "DEMO-ORDER-1002",
-  },
-  {
-    name: "Coffee beans",
-    category: "Food & Dining",
-    merchant: "The Roastery",
-    unitPrice: 850,
-    quantity: 2,
-    daysAgo: 9,
-    status: "DELIVERED",
-    orderId: "DEMO-ORDER-1003",
-  },
 ];
 
 const RECURRING_RECORDS = [
@@ -288,7 +255,6 @@ const resetDemoUserData = async (userId) => {
     BudgetModel.deleteMany({ userID: userId }),
     BillModel.deleteMany({ userID: userId }),
     RecurringModel.deleteMany({ userId }),
-    PurchaseModel.deleteMany({ userID: userId }),
   ];
 
   const results = await Promise.all(scopes);
@@ -349,21 +315,6 @@ const seedDemoDataForUser = async (userId) => {
     status: "pending",
   }));
 
-  const purchases = PURCHASE_RECORDS.map((record) => ({
-    userID: userId,
-    name: record.name,
-    description: `${record.name} from ${record.merchant}`,
-    category: record.category,
-    merchant: record.merchant,
-    unitPrice: record.unitPrice,
-    quantity: record.quantity,
-    totalAmount: record.unitPrice * record.quantity,
-    currency: "INR",
-    purchaseDate: daysAgo(record.daysAgo),
-    orderId: record.orderId,
-    status: record.status,
-  }));
-
   const recurring = RECURRING_RECORDS.map((record) => ({
     userId,
     title: record.title,
@@ -375,13 +326,12 @@ const seedDemoDataForUser = async (userId) => {
     isActive: true,
   }));
 
-  const [insertedIncomes, insertedExpenses, insertedBudgets, insertedBills, insertedPurchases, insertedRecurring] =
+  const [insertedIncomes, insertedExpenses, insertedBudgets, insertedBills, insertedRecurring] =
     await Promise.all([
       IncomeModel.insertMany(incomes),
       ExpenseModel.insertMany(expenses),
       BudgetModel.insertMany(budgets),
       BillModel.insertMany(bills),
-      PurchaseModel.insertMany(purchases),
       RecurringModel.insertMany(recurring),
     ]);
 
@@ -393,7 +343,6 @@ const seedDemoDataForUser = async (userId) => {
       expenses: insertedExpenses.length,
       budgets: insertedBudgets.length,
       bills: insertedBills.length,
-      purchases: insertedPurchases.length,
       recurring: insertedRecurring.length,
     },
   };

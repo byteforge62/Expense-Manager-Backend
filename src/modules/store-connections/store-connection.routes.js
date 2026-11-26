@@ -5,6 +5,7 @@ const validate = require("../../middleware/validate.middleware");
 const { asyncHandler, sendSuccess } = require("../../utiles/response");
 
 const service = require("./services/store-connection.service");
+const storeFetch = require("./services/store-fetch.service");
 const {
   linkStoreSchema,
   importOrdersSchema,
@@ -48,6 +49,14 @@ const importOrders = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, "Store orders imported successfully", result);
 });
 
+const fetchOrders = asyncHandler(async (req, res) => {
+  const data = await storeFetch.fetchStoreOrders(req.params.id, req.user.id, {
+    requestId: req.id,
+  });
+
+  return sendSuccess(res, 200, "Store orders fetched successfully", data);
+});
+
 routes.use(requireAuth);
 
 routes.get("/", listConnections);
@@ -61,6 +70,11 @@ routes.post(
   "/:id/import",
   validate({ params: storeConnectionIdParamSchema, body: importOrdersSchema }),
   importOrders,
+);
+routes.post(
+  "/:id/fetch",
+  validate({ params: storeConnectionIdParamSchema }),
+  fetchOrders,
 );
 
 module.exports = routes;
