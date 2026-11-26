@@ -124,7 +124,18 @@ const purchaseSummaryQuerySchema = z.object({
 
 const purchaseIdParamSchema = z.object({ id: objectIdSchema });
 
+/**
+ * A saved account preference, not a per-request filter: it changes what the
+ * purchase log and its analytics return until the user turns it off.
+ */
+const purchasePreferencesSchema = z
+  .object({
+    linkedStoresOnly: z.boolean(),
+  })
+  .strict();
+
 module.exports = {
+  purchasePreferencesSchema,
   createPurchaseSchema,
   updatePurchaseSchema,
   purchaseListQuerySchema,

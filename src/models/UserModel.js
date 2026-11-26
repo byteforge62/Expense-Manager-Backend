@@ -88,6 +88,17 @@ const UserSchema = new Schema(
         default: "low",
       },
     },
+
+    // --- PURCHASE PREFERENCES ---
+    // Saved account-level choice. When `linkedStoresOnly` is true, the purchase
+    // log, its analytics and the dashboard only receive purchases imported from
+    // a linked store account. Manual entries stay stored, but are not returned.
+    purchasePreferences: {
+      linkedStoresOnly: {
+        type: Boolean,
+        default: false,
+      },
+    },
   },
   {
     timestamps: true,

@@ -36,6 +36,10 @@ const storeConnectionSchema = new Schema(
 
     lastSyncedAt: { type: Date },
     lastImportCount: { type: Number, min: 0, default: 0 },
+    // The last successful automatic read, kept so the page can show the
+    // "fetched" state after a reload instead of losing it with the dialog.
+    lastFetchedAt: { type: Date },
+    lastFetchCount: { type: Number, min: 0 },
     totalImported: { type: Number, min: 0, default: 0 },
   },
   { timestamps: true },

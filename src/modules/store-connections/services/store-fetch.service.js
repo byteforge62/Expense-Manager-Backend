@@ -211,7 +211,11 @@ const fetchStoreOrders = async (connectionId, userId, context = {}) => {
           order.unitPrice >= 0,
       );
 
+    // Persisted fetch state: the page can show "read N orders" after a reload
+    // instead of the result vanishing with the dialog. Nothing is imported here.
     connection.lastError = undefined;
+    connection.lastFetchedAt = new Date();
+    connection.lastFetchCount = orders.length;
     await connection.save();
 
     audit.record({
@@ -224,6 +228,7 @@ const fetchStoreOrders = async (connectionId, userId, context = {}) => {
 
     return {
       store: { key: store.key, name: store.name },
+      connection: { ...connection.toObject(), providerName: store.name },
       orders,
       total: roundMoney(
         orders.reduce(

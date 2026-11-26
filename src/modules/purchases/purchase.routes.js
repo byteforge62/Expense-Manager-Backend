@@ -19,6 +19,7 @@ const {
   purchaseListQuerySchema,
   purchaseSummaryQuerySchema,
   purchaseIdParamSchema,
+  purchasePreferencesSchema,
 } = require("./purchase.validation");
 
 /**
@@ -40,23 +41,34 @@ const withImageUrl = (purchase, req) =>
     }),
   };
 
+/** The saved "linked stores only" preference, resolved by auth middleware. */
+const linkedStoresOnlyOf = (req) =>
+  req.user?.purchasePreferences?.linkedStoresOnly === true;
+
 const listPurchases = asyncHandler(async (req, res) => {
-  const { items, meta } = await service.listPurchases(req.user.id, {
-    ...req.query,
-    requestId: req.id,
-  });
+  const { items, meta } = await service.listPurchases(
+    req.user.id,
+    {
+      ...req.query,
+      requestId: req.id,
+    },
+    { linkedStoresOnly: linkedStoresOnlyOf(req) },
+  );
 
   return sendSuccess(
     res,
     200,
     "Purchases fetched successfully",
     items.map((purchase) => withImageUrl(purchase, req)),
-    meta,
+    // Tells the page why manual rows may be missing, without another request.
+    { ...(meta || {}), purchaseFilter: { linkedStoresOnly: linkedStoresOnlyOf(req) } },
   );
 });
 
 const getSummary = asyncHandler(async (req, res) => {
-  const summary = await service.getPurchaseSummary(req.user.id, req.query);
+  const summary = await service.getPurchaseSummary(req.user.id, req.query, {
+    linkedStoresOnly: linkedStoresOnlyOf(req),
+  });
 
   return sendSuccess(res, 200, "Purchase analytics fetched successfully", {
     ...summary,
@@ -205,6 +217,37 @@ routes.get(
   "/summary",
   validate({ query: purchaseSummaryQuerySchema }),
   getSummary,
+);
+
+const getPreferences = asyncHandler(async (req, res) => {
+  const preferences = await service.getPurchasePreferences(req.user.id);
+  return sendSuccess(
+    res,
+    200,
+    "Purchase preferences fetched successfully",
+    preferences,
+  );
+});
+
+const updatePreferences = asyncHandler(async (req, res) => {
+  const preferences = await service.updatePurchasePreferences(
+    req.user.id,
+    req.body,
+  );
+
+  return sendSuccess(
+    res,
+    200,
+    "Purchase preferences updated successfully",
+    preferences,
+  );
+});
+
+routes.get("/preferences", getPreferences);
+routes.put(
+  "/preferences",
+  validate({ body: purchasePreferencesSchema }),
+  updatePreferences,
 );
 routes.post(
   "/upload-image",

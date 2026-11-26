@@ -51,6 +51,21 @@ const purchaseSchema = new Schema(
       ref: "expense",
       default: undefined,
     },
+
+    // Where the record came from. STORE rows are written by a linked-store
+    // import, so "only store purchases" needs no text matching and stays
+    // indexable. Existing rows default to MANUAL.
+    origin: {
+      type: String,
+      enum: ["MANUAL", "STORE"],
+      default: "MANUAL",
+      required: true,
+    },
+    storeConnectionId: {
+      type: Schema.Types.ObjectId,
+      ref: "StoreConnection",
+      default: undefined,
+    },
   },
   { timestamps: true },
 );
@@ -58,6 +73,8 @@ const purchaseSchema = new Schema(
 purchaseSchema.index({ userID: 1, purchaseDate: -1, _id: -1 });
 purchaseSchema.index({ userID: 1, category: 1, purchaseDate: -1 });
 purchaseSchema.index({ userID: 1, merchant: 1, purchaseDate: -1 });
+// Serves the "linked stores only" preference without scanning the log.
+purchaseSchema.index({ userID: 1, origin: 1, purchaseDate: -1 });
 
 // One purchase per order per user. Partial so the many purchases without an
 // order id are unaffected (a unique index on a missing field would collide).

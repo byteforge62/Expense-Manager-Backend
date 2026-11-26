@@ -134,6 +134,9 @@ const importStoreOrders = async (connectionId, userId, orders, context = {}) => 
     orderId: order.orderId,
     status: order.status || "DELIVERED",
     notes: `Imported from ${store.name}`,
+    // The provenance marker the "linked stores only" preference filters on.
+    origin: "STORE",
+    storeConnectionId: connection._id,
   }));
 
   const orderIds = [...new Set(candidates.map((order) => order.orderId))];

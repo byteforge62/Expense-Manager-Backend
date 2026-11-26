@@ -366,14 +366,119 @@ const extractOrdersInPage = (config) => {
   const labelledId =
     /(?:order|invoice|transaction)\s*(?:id|no\.?|number|#)\s*[:#-]?\s*([A-Z0-9][A-Z0-9-]{5,30})/i;
 
-  const findOrderId = (text) => {
-    for (const pattern of idPatterns) {
-      const match = text.match(pattern);
-      if (match) return match[0];
+  const decode = (value) => {
+    try {
+      return decodeURIComponent(String(value || ""));
+    } catch {
+      return String(value || "");
+    }
+  };
+
+  // Route words and UI labels that turn up where an id is expected. Treating
+  // any of them as an id would give several different orders the same key and
+  // silently merge them into one purchase.
+  const NON_ID_WORDS = new Set([
+    "order",
+    "orders",
+    "orderdetail",
+    "orderdetails",
+    "details",
+    "detail",
+    "view",
+    "vieworder",
+    "track",
+    "trackorder",
+    "tracking",
+    "status",
+    "summary",
+    "items",
+    "item",
+    "invoice",
+    "invoices",
+    "history",
+    "myorders",
+    "account",
+    "help",
+    "support",
+    "cancel",
+    "cancellation",
+    "return",
+    "returns",
+    "review",
+    "reviews",
+    "feedback",
+    "list",
+    "all",
+    "none",
+    "undefined",
+    "null",
+    "true",
+    "false",
+    "pending",
+    "delivered",
+    "shipped",
+  ]);
+
+  /**
+   * Accepts a value only when it plausibly is an order number. Everything else
+   * (a route word, a month, a status, a placeholder attribute) is dropped, so
+   * an unrecognised card yields no purchase instead of a fake shared id.
+   */
+  const orderIdValue = (value) => {
+    const raw = clean(value)
+      .replace(/^[#:\s]+/, "")
+      .replace(/[\s.,;:]+$/, "");
+
+    if (!raw || raw.length < 6 || raw.length > 40) return null;
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(raw)) return null;
+
+    const key = raw.toLowerCase().replace(/[-_]/g, "");
+
+    if (NON_ID_WORDS.has(key) || NON_ID_WORDS.has(raw.toLowerCase())) {
+      return null;
     }
 
-    const labelled = text.match(labelledId);
-    return labelled ? labelled[1] : null;
+    // An id always contains a digit; a word never does.
+    if (!/\d/.test(raw)) return null;
+
+    const digits = (raw.match(/\d/g) || []).length;
+    const groups = raw.split(/[-_]/);
+
+    if (groups.every((group) => /^\d+$/.test(group))) {
+      // Bare numbers ("1234567890") are real ids, but need enough digits that a
+      // year, a month or a pincode cannot pass. Hyphenated values must look
+      // like Amazon's 404-1234567-1234567, not like 2025-01.
+      if (groups.length === 1) {
+        if (digits < 6) return null;
+      } else if (
+        digits < 8 ||
+        groups.length > 4 ||
+        groups.some((group) => group.length < 3)
+      ) {
+        return null;
+      }
+    } else if (digits < 4 || !/[A-Za-z]/.test(raw)) {
+      // Prefixed ids (OD2250…, FN12345678, TC1234…) carry a letter prefix plus
+      // at least four digits.
+      return null;
+    }
+
+    // Dates are printed all over an order card and are never its id.
+    if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(raw)) return null;
+    if (/^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(raw)) return null;
+
+    return raw;
+  };
+
+  const findOrderId = (text) => {
+    const source = clean(text);
+
+    for (const pattern of idPatterns) {
+      const candidate = orderIdValue(source.match(pattern)?.[0]);
+      if (candidate) return candidate;
+    }
+
+    return orderIdValue(source.match(labelledId)?.[1]);
   };
 
   const parsePrice = (text) => {
@@ -472,6 +577,8 @@ const extractOrdersInPage = (config) => {
 
   /** Reads an id out of the link that opens the order's details. */
   const idFromLinks = (card) => {
+    const hrefs = [];
+
     for (const anchor of card.querySelectorAll("a[href]")) {
       const href = String(anchor.getAttribute("href") || "");
 
@@ -479,20 +586,44 @@ const extractOrdersInPage = (config) => {
         continue;
       }
 
-      for (const pattern of linkPatterns) {
-        const match = href.match(pattern);
-        if (match?.[1]) return match[1];
-      }
+      hrefs.push(href);
+    }
 
-      const segment = href.match(
-        /\/(?:my-?orders?|orders?|order-details?)\/([A-Za-z0-9][A-Za-z0-9_-]{5,40})(?:[/?#]|$)/i,
-      );
-      if (segment) return segment[1];
-
+    // A query parameter is authored as the id itself, so it wins over a path
+    // segment such as "details" or a numeric route like "2025-01".
+    for (const href of hrefs) {
       const query = href.match(
-        /[?&](?:orderId|order_id|orderNumber|order_no|orderNo)=([A-Za-z0-9_-]{6,40})/i,
+        /[?&](?:orderId|order_id|orderNumber|order_no|orderNo)=([^&#]{1,80})/i,
       );
-      if (query) return query[1];
+      const fromQuery = orderIdValue(decode(query?.[1]));
+
+      if (fromQuery) return fromQuery;
+    }
+
+    // The store's own link formats are the next most trustworthy source.
+    for (const href of hrefs) {
+      for (const pattern of linkPatterns) {
+        const fromPattern = orderIdValue(href.match(pattern)?.[1]);
+
+        if (fromPattern) return fromPattern;
+      }
+    }
+
+    // Last resort: a segment after the orders route, with route words and
+    // date-shaped segments rejected by orderIdValue.
+    for (const href of hrefs) {
+      const path = String(href).split(/[?#]/)[0];
+      const tail = path.match(
+        /\/(?:my-?orders?|orders?|order-details?|orderdetail|purchases?|transactions?)\/(.+)$/i,
+      )?.[1];
+
+      if (!tail) continue;
+
+      for (const segment of tail.split("/")) {
+        const fromSegment = orderIdValue(decode(segment));
+
+        if (fromSegment) return fromSegment;
+      }
     }
 
     return null;
@@ -508,20 +639,18 @@ const extractOrdersInPage = (config) => {
     ];
 
     // The card itself, then any descendant that carries the id as an attribute.
+    // Attribute values are validated like any other candidate: placeholders
+    // such as "undefined", "true" or "order-card" must not become ids.
     for (const element of [card, ...card.querySelectorAll(attributeNames.map((name) => `[${name}]`).join(","))]) {
       for (const name of attributeNames) {
-        const value = element.getAttribute?.(name);
-
-        if (value) {
-          const fromAttribute = findOrderId(value) || clean(value);
-          if (fromAttribute) return fromAttribute;
-        }
+        const fromAttribute = orderIdValue(element.getAttribute?.(name));
+        if (fromAttribute) return fromAttribute;
       }
     }
 
     const slot = card.getAttribute?.("data-csa-c-slot-id") || "";
-    const fromSlot = slot.match(/order-card\.([A-Z0-9-]{6,})$/i);
-    if (fromSlot) return fromSlot[1];
+    const fromSlot = orderIdValue(slot.match(/order-card\.([A-Z0-9-]{6,})$/i)?.[1]);
+    if (fromSlot) return fromSlot;
 
     const fromLinks = idFromLinks(card);
     if (fromLinks) return fromLinks;

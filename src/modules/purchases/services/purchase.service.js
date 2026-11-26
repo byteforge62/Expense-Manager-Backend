@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const PurchaseModel = require("../models/PurchaseModel");
 const CategoryModel = require("../../../models/CategoryModel");
+const UserModel = require("../../../models/UserModel");
 
 const expenseService = require("../../../services/expense.service");
 const { canonicalizeImageUrl } = require("./purchase-image.service");
@@ -207,13 +208,20 @@ const createPurchase = async (data, userId, context = {}) => {
   };
 };
 
-const buildPurchaseFilter = (userId, filter = {}) => {
+const buildPurchaseFilter = (userId, filter = {}, options = {}) => {
   const query = { userID: userId };
   const dateFilter = buildDateRangeFilter(
     "purchaseDate",
     filter.startDate,
     filter.endDate,
   );
+
+  // The saved account preference is enforced here, server-side, so every
+  // consumer of the log (page, analytics, dashboard, reports) agrees. It is
+  // backed by the { userID, origin, purchaseDate } index.
+  if (options.linkedStoresOnly) {
+    query.origin = "STORE";
+  }
 
   if (dateFilter) {
     Object.assign(query, dateFilter);
@@ -246,10 +254,10 @@ const buildPurchaseFilter = (userId, filter = {}) => {
   return query;
 };
 
-const listPurchases = async (userId, filter = {}) =>
+const listPurchases = async (userId, filter = {}, options = {}) =>
   executeListQuery({
     model: PurchaseModel,
-    filter: buildPurchaseFilter(userId, filter),
+    filter: buildPurchaseFilter(userId, filter, options),
     sort: buildSort(filter.sortBy, filter.sortOrder, "purchaseDate"),
     params: filter,
   });
@@ -453,10 +461,10 @@ const deletePurchase = async (purchaseId, userId, context = {}) => {
  * The frontend renders these numbers as-is, so purchase totals on the page,
  * on the dashboard and in reports cannot drift apart.
  */
-const getPurchaseSummary = async (userId, filter = {}) => {
+const getPurchaseSummary = async (userId, filter = {}, options = {}) => {
   // The same filter builder as the list keeps analytics and the visible rows
   // describing the same set of purchases.
-  const match = buildPurchaseFilter(userId, filter);
+  const match = buildPurchaseFilter(userId, filter, options);
   match.userID = new mongoose.Types.ObjectId(String(userId));
 
   const [result] = await PurchaseModel.aggregate([
@@ -567,7 +575,42 @@ const getPurchaseSummary = async (userId, filter = {}) => {
   };
 };
 
+/**
+ * Saved purchase preferences.
+ *
+ * Stored on the user document so the choice follows the account across
+ * browsers. Read in the same auth lookup that guards every request, so turning
+ * the filter on does not add a query to each purchase read.
+ */
+const getPurchasePreferences = async (userId) => {
+  const user = await UserModel.findById(userId)
+    .select("purchasePreferences")
+    .lean();
+
+  return { linkedStoresOnly: Boolean(user?.purchasePreferences?.linkedStoresOnly) };
+};
+
+const updatePurchasePreferences = async (userId, patch) => {
+  const update = {};
+
+  if (typeof patch.linkedStoresOnly === "boolean") {
+    update["purchasePreferences.linkedStoresOnly"] = patch.linkedStoresOnly;
+  }
+
+  const user = await UserModel.findByIdAndUpdate(
+    userId,
+    { $set: update },
+    { new: true, runValidators: true },
+  )
+    .select("purchasePreferences")
+    .lean();
+
+  return { linkedStoresOnly: Boolean(user?.purchasePreferences?.linkedStoresOnly) };
+};
+
 module.exports = {
+  getPurchasePreferences,
+  updatePurchasePreferences,
   createPurchase,
   listPurchases,
   getPurchase,

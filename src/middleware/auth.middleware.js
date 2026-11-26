@@ -27,8 +27,10 @@ const requireAuth = async (req, res, next) => {
       });
     }
 
+    // The purchase preference travels with the session lookup that already
+    // happens on every request, so enforcing it costs no extra query.
     const user = await UserModel.findById(decoded.id).select(
-      "_id role is_active",
+      "_id role is_active purchasePreferences",
     );
 
     if (!user || !user.is_active) {
@@ -41,6 +43,7 @@ const requireAuth = async (req, res, next) => {
     req.user = {
       id: user._id.toString(),
       role: user.role,
+      purchasePreferences: user.purchasePreferences || {},
     };
 
     return next();
