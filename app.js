@@ -32,6 +32,7 @@ const notificationRoutes = require("./src/modules/notifications/notification.rou
 const demoRoutes = require("./src/routes/DemoRoutes");
 const realtimeRoutes = require("./src/modules/realtime/realtime.routes");
 const summariesRoutes = require("./src/modules/summaries/summaries.routes");
+const investmentRoutes = require("./src/modules/investments/investment.routes");
 const errorHandler = require("./src/middleware/error.middleware");
 const app = express();
 
@@ -192,6 +193,7 @@ app.use("/api", billRoutes);
 app.use("/api", reportRoutes);
 app.use("/api/purchases", purchaseRoutes);
 app.use("/api/store-connections", storeConnectionRoutes);
+app.use("/api/investments", investmentRoutes);
 app.use("/api/purchase-intelligence", purchaseIntelligenceRoutes);
 app.use("/api/financial-forecast", financialForecastRoutes);
 app.use("/api/financial-intelligence", financialIntelligenceRoutes);
